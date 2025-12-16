@@ -1,0 +1,117 @@
+PlanSpace:
+  Actions:
+  - Action:
+      cost: 1
+      name: instruct_driver_site_name
+      post_effects:
+      - state.instruct_driver_site_name_filled = True
+      pre_conditions:
+      - state.instruct_driver_site_name_filled == False
+  - Action:
+      cost: 1
+      name: fill_vehicle_types
+      post_effects:
+      - state.vehicle_types_filled = True
+      pre_conditions:
+      - state.instruct_driver_site_name_filled == True
+      - state.vehicle_types_filled == False
+  - Action:
+      cost: 1
+      name: fill_truck_num
+      post_effects:
+      - state.truck_num_filled = True
+      pre_conditions:
+      - state.vehicle_types == "Bobtail Truck"
+      - state.instruct_driver_site_name_filled == True
+      - state.vehicle_types_filled == True
+      - state.truck_num_filled == False
+  - Action:
+      cost: 1
+      name: grant_access
+      post_effects:
+      - state.access_granted = True
+      - state.access_denied = False
+      pre_conditions:
+      - state.vehicle_types == "Bobtail Truck"
+      - state.instruct_driver_site_name_filled == True
+      - state.vehicle_types_filled == True
+      - state.truck_num_filled == True
+  - Action:
+      cost: 1
+      name: fill_trailer_num
+      post_effects:
+      - state.trailer_num_filled = True
+      pre_conditions:
+      - state.vehicle_types == "Truck and Trailer"
+      - state.instruct_driver_site_name_filled == True
+      - state.vehicle_types_filled == True
+      - state.trailer_num_filled == False
+  - Action:
+      cost: 1
+      name: prompt_driver_cdl_number
+      post_effects:
+      - state.prompt_driver_cdl_number_filled = True
+      pre_conditions:
+      - state.vehicle_types == "Truck and Trailer"
+      - state.instruct_driver_site_name_filled == True
+      - state.vehicle_types_filled == True
+      - state.trailer_num_filled == True
+      - state.cdl_number_filled == False
+      - state.prompt_driver_cdl_number_filled == False
+  - Action:
+      cost: 1
+      name: fill_cdl_number
+      post_effects:
+      - state.cdl_number_filled = True
+      pre_conditions:
+      - state.vehicle_types == "Truck and Trailer"
+      - state.instruct_driver_site_name_filled == True
+      - state.vehicle_types_filled == True
+      - state.trailer_num_filled == True
+      - state.prompt_driver_cdl_number_filled == True
+      - state.cdl_number_filled == False
+  - Action:
+      cost: 1
+      name: grant_access
+      post_effects:
+      - state.access_granted = True
+      - state.access_denied = False
+      pre_conditions:
+      - state.vehicle_types == "Truck and Trailer"
+      - state.instruct_driver_site_name_filled == True
+      - state.vehicle_types_filled == True
+      - state.trailer_num_filled == True
+      - state.cdl_number_filled == True
+  - Action:
+      cost: 1
+      name: deny_access
+      post_effects:
+      - state.access_granted = False
+      - state.access_denied = True
+      pre_conditions:
+      - state.vehicle_types == "Pedestrian"
+      - state.instruct_driver_site_name_filled == True
+      - state.vehicle_types_filled == True
+  - Action:
+      cost: 1
+      name: deny_access
+      post_effects:
+      - state.access_granted = False
+      - state.access_denied = True
+      pre_conditions:
+      - state.vehicle_types == "unknown"
+      - state.instruct_driver_site_name_filled == True
+      - state.vehicle_types_filled == True
+  GoalState:
+    expression: (state.access_granted == True) or (state.access_denied == True)
+  StartState:
+    state:
+      access_denied: false
+      access_granted: false
+      cdl_number_filled: false
+      instruct_driver_site_name_filled: false
+      prompt_driver_cdl_number_filled: false
+      trailer_num_filled: false
+      truck_num_filled: false
+      vehicle_types: unknown
+      vehicle_types_filled: false

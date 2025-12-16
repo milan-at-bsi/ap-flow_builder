@@ -1,0 +1,64 @@
+blocks:
+  - type: container
+    name: Action
+    fields:
+    - name: action
+  - type: container
+    name: Card
+    fields:
+    - name: card_id
+  - type: container
+    name: delivery
+  - type: leaf
+    name: intent
+    fields:
+    - name: intent
+      default: collect
+      options:
+      - collect
+      - acknwoledge  
+  - type: container
+    name: interaction
+    fields:
+    - name: interaction_type
+      default: intput.text
+      options:
+      - input.text
+      - acknwoledge
+  - type: leaf
+    name: field
+    fields:
+    - name: field
+    - name: label
+    - name: prompt
+  - type: leaf
+    name: on_success
+    fields:
+    - name: on_success
+      default: "{ [field]_filled: true }"
+  - type: leaf
+    name: on_error
+    fields:
+    - name: on_error
+      default: "{ [field]_filled: false }"
+  - type: container
+    name: Policy
+  - type: container
+    name: pre_conditions
+  - type: leaf
+    name: Pre-Condition
+    fields:
+    - name: pre_condition
+      default: state.[field]_filled == False
+  - type: container
+    name: post_effects
+  - type: leaf
+    name: Post Effect
+    fields:
+    - name: post_effect
+      default: "state.[field]_filled = True"
+  - type: leaf
+    name: Timeout
+    fields:
+    - name: timeout_sec
+      default: "30"  

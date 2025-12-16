@@ -1,0 +1,40 @@
+diagram:
+  Protocol:
+    - Fill Data:
+        - block_type: Action
+        - data_field: vehicle_type
+        - required:
+            block_type: constraint
+            value: "true"
+    - Switch:
+        - On: vehicle_type
+        - Case:
+            - match: bobtail
+            - Fill Data:
+                - block_type: Action
+                - data_field: truck_number
+                - required:
+                    block_type: constraint
+                    value: "true"
+            - Access Decision:
+                access: granted
+        - Case:
+            - match: truck
+            - Fill Data:
+                - block_type: Action
+                - data_field: truck_number
+                - required:
+                    block_type: constraint
+                    value: "true"
+            - Fill Data:
+                - block_type: Action
+                - data_field: trailer_number
+                - required:
+                    block_type: constraint
+                    value: "true"
+            - Access Decision:
+                access: granted
+        - Case:
+            - match: unknown
+            - Access Decision:
+                access: denied

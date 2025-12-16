@@ -1,0 +1,13 @@
+blocks:
+  - type: container
+    name: Card
+    fields:
+      - name: Name
+  - type: container
+    name: Intents
+  - type: leaf
+    name: Property
+  - type: leaf
+    name: Timeout
+    fields:
+      - name: seconds

@@ -1,0 +1,48 @@
+blocks:
+  - type: container
+    name: Protocol  
+  - type: container
+    name: Switch
+    fields:
+      - name: On
+        type: block
+  - type: container
+    name: Case
+    fields:
+      - name: match
+        type: text
+  - type: container
+    name: Fill Data
+    block_type: Action
+  - type: leaf
+    name: Access Decision
+    fields:
+      - name: access
+        default: denied
+        options:
+          - Granted
+          - Denied
+  - type: leaf
+    name: vehicle_type
+    block_type: data_field
+  - type: leaf
+    name: truck_number
+    block_type: data_field
+  - type: leaf
+    name: trailer_number
+    block_type: data_field 
+  - type: leaf
+    name: license_plate
+    block_type: data_field
+  - type: leaf
+    name: cdl_number
+    block_type: data_field
+  - type: leaf
+    name: required
+    block_type: constraint
+    fields:
+      - name: value
+        default: "true"
+        options:
+          - "true"
+          - "false"

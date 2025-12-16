@@ -1,0 +1,5 @@
+workspaces:
+  - name: Actions
+    file: workspace_actions.yaml
+  - name: Protocols
+    file: workspace_protocols.yaml

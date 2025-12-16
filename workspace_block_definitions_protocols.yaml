@@ -1,0 +1,46 @@
+blocks
+  - type: container
+    block_name: Switch
+    fields:
+      - name: Case
+      - type: block
+  - type: container
+    name: Case
+    fields:
+      - name: case
+        type: text
+  - type: leaf
+    block_name: Fill Data    
+    fields:
+      - name: name
+        default: truck_number
+      - name: required
+        default: true
+  - type: leaf
+    block_name: Fill Data
+    fields:
+      - name: name
+        default: trailer_number
+      - name: required
+        default: true        
+  - type: leaf
+    block_name: Fill Data
+    fields:
+      - name: name
+        default: vehicle_type
+      - name: required
+        default: true
+  - type: leaf
+    block_name: Fill Data
+    fields:
+      - name: name
+        default: vehicle_type
+      - name: required
+        default: true
+  - type: leaf
+    block_name: Access Decision
+    fields:
+      - name: access
+        default: denied
+        options: ["Granted", "Denied"]
+      

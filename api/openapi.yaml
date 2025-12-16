@@ -1,0 +1,498 @@
+openapi: 3.0.3
+info:
+  title: Protocol Builder API
+  description: |
+    REST API for managing flows in the Protocol Builder application.
+    
+    Flows represent visual diagram definitions with their corresponding PlanSpace YAML outputs.
+  version: 1.0.0
+  contact:
+    name: Protocol Builder
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:3001
+    description: Local development server
+
+tags:
+  - name: Flows
+    description: Flow management operations
+  - name: Health
+    description: Health check endpoint
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Check the health status of the API and database connection
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Health status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              examples:
+                healthy:
+                  summary: Healthy response
+                  value:
+                    status: healthy
+                    database: connected
+                unhealthy:
+                  summary: Unhealthy response
+                  value:
+                    status: unhealthy
+                    database: disconnected
+
+  /api/flows:
+    get:
+      tags:
+        - Flows
+      summary: List all flows
+      description: |
+        Retrieve all flows or filter by external_id.
+        
+        If `external_id` query parameter is provided, returns a single flow matching that ID.
+      operationId: listFlows
+      parameters:
+        - name: external_id
+          in: query
+          description: Filter by external ID to get a specific flow
+          required: false
+          schema:
+            type: string
+          example: vehicle-access-v1
+      responses:
+        '200':
+          description: List of flows or single flow if filtered by external_id
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: array
+                    items:
+                      $ref: '#/components/schemas/Flow'
+                  - $ref: '#/components/schemas/Flow'
+              examples:
+                list:
+                  summary: List of all flows
+                  value:
+                    - id: 1
+                      name: Vehicle Access Protocol
+                      external_id: vehicle-access-v1
+                      flow_yaml: "diagram:\n  Protocol: []"
+                      plan_yaml: "PlanSpace:\n  Actions: []"
+                      created_at: "2025-12-15T00:00:00.000Z"
+                      updated_at: "2025-12-15T00:00:00.000Z"
+                single:
+                  summary: Single flow by external_id
+                  value:
+                    id: 1
+                    name: Vehicle Access Protocol
+                    external_id: vehicle-access-v1
+                    flow_yaml: "diagram:\n  Protocol: []"
+                    plan_yaml: "PlanSpace:\n  Actions: []"
+                    created_at: "2025-12-15T00:00:00.000Z"
+                    updated_at: "2025-12-15T00:00:00.000Z"
+        '404':
+          description: Flow not found (when filtering by external_id)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      tags:
+        - Flows
+      summary: Create a new flow
+      description: Create a new flow with the provided data
+      operationId: createFlow
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFlowRequest'
+            examples:
+              basic:
+                summary: Basic flow creation
+                value:
+                  name: My New Protocol
+              complete:
+                summary: Complete flow creation
+                value:
+                  name: Vehicle Access Protocol
+                  external_id: vehicle-access-v1
+                  flow_yaml: "diagram:\n  Protocol:\n    - Fill Data:\n        - data_field: vehicle_type"
+                  plan_yaml: "PlanSpace:\n  Actions:\n    - Action:\n        name: fill_vehicle_type"
+      responses:
+        '201':
+          description: Flow created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Flow'
+        '400':
+          description: Bad request (missing required fields)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Name is required
+        '409':
+          description: Conflict (external_id already exists)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: External ID already exists
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/flows/external/{externalId}:
+    get:
+      tags:
+        - Flows
+      summary: Get flow by external ID
+      description: Retrieve a single flow by its external ID (unique identifier for integration with other systems)
+      operationId: getFlowByExternalId
+      parameters:
+        - name: externalId
+          in: path
+          description: External ID of the flow
+          required: true
+          schema:
+            type: string
+          example: vehicle-access-v1
+      responses:
+        '200':
+          description: Flow found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Flow'
+              example:
+                id: 1
+                name: Vehicle Access Protocol
+                external_id: vehicle-access-v1
+                flow_yaml: "diagram:\n  Protocol: []"
+                plan_yaml: "PlanSpace:\n  Actions: []"
+                created_at: "2025-12-15T00:00:00.000Z"
+                updated_at: "2025-12-15T00:00:00.000Z"
+        '400':
+          description: External ID is required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: External ID is required
+        '404':
+          description: Flow not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Flow not found
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/flows/{id}:
+    get:
+      tags:
+        - Flows
+      summary: Get flow by ID
+      description: Retrieve a single flow by its database ID
+      operationId: getFlowById
+      parameters:
+        - name: id
+          in: path
+          description: Flow ID
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+          example: 1
+      responses:
+        '200':
+          description: Flow found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Flow'
+        '400':
+          description: Invalid flow ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Invalid flow ID
+        '404':
+          description: Flow not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Flow not found
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    put:
+      tags:
+        - Flows
+      summary: Update a flow
+      description: Update an existing flow with the provided data. Only provided fields will be updated.
+      operationId: updateFlow
+      parameters:
+        - name: id
+          in: path
+          description: Flow ID
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+          example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateFlowRequest'
+            examples:
+              name_only:
+                summary: Update name only
+                value:
+                  name: Updated Protocol Name
+              full_update:
+                summary: Full update
+                value:
+                  name: Vehicle Access Protocol v2
+                  external_id: vehicle-access-v2
+                  flow_yaml: "diagram:\n  Protocol: []"
+                  plan_yaml: "PlanSpace:\n  Actions: []"
+      responses:
+        '200':
+          description: Flow updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Flow'
+        '400':
+          description: Invalid flow ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Flow not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict (external_id already exists)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      tags:
+        - Flows
+      summary: Delete a flow
+      description: Permanently delete a flow by its ID
+      operationId: deleteFlow
+      parameters:
+        - name: id
+          in: path
+          description: Flow ID
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+          example: 1
+      responses:
+        '204':
+          description: Flow deleted successfully (no content)
+        '400':
+          description: Invalid flow ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Flow not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    Flow:
+      type: object
+      description: A flow definition with its YAML content
+      required:
+        - id
+        - name
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: integer
+          description: Unique database ID
+          example: 1
+        name:
+          type: string
+          description: Display name of the flow
+          example: Vehicle Access Protocol
+        external_id:
+          type: string
+          nullable: true
+          description: Optional unique external identifier for integration with other systems
+          example: vehicle-access-v1
+        flow_yaml:
+          type: string
+          nullable: true
+          description: YAML representation of the flow diagram
+          example: |
+            diagram:
+              Protocol:
+                - Fill Data:
+                    - data_field: vehicle_type
+        plan_yaml:
+          type: string
+          nullable: true
+          description: Generated PlanSpace YAML from the flow diagram
+          example: |
+            PlanSpace:
+              Actions:
+                - Action:
+                    name: fill_vehicle_type
+                    cost: 1
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the flow was created
+          example: "2025-12-15T00:00:00.000Z"
+        updated_at:
+          type: string
+          format: date-time
+          description: Timestamp when the flow was last updated
+          example: "2025-12-15T12:30:00.000Z"
+
+    CreateFlowRequest:
+      type: object
+      description: Request body for creating a new flow
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: Display name of the flow
+          minLength: 1
+          example: My New Protocol
+        external_id:
+          type: string
+          nullable: true
+          description: Optional unique external identifier
+          example: my-protocol-v1
+        flow_yaml:
+          type: string
+          nullable: true
+          description: YAML representation of the flow diagram
+        plan_yaml:
+          type: string
+          nullable: true
+          description: Generated PlanSpace YAML
+
+    UpdateFlowRequest:
+      type: object
+      description: Request body for updating a flow. All fields are optional.
+      properties:
+        name:
+          type: string
+          description: Display name of the flow
+          minLength: 1
+          example: Updated Protocol Name
+        external_id:
+          type: string
+          nullable: true
+          description: Optional unique external identifier
+          example: updated-protocol-v2
+        flow_yaml:
+          type: string
+          nullable: true
+          description: YAML representation of the flow diagram
+        plan_yaml:
+          type: string
+          nullable: true
+          description: Generated PlanSpace YAML
+
+    HealthResponse:
+      type: object
+      description: Health check response
+      required:
+        - status
+        - database
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+          description: Overall health status
+          example: healthy
+        database:
+          type: string
+          enum: [connected, disconnected]
+          description: Database connection status
+          example: connected
+
+    Error:
+      type: object
+      description: Error response
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Error message
+          example: Something went wrong

@@ -1,0 +1,52 @@
+diagram:
+  - type: container
+    name: Action
+    fields:
+      action: fill_truck_number
+    children:
+      - type: container
+        name: Card
+        fields:
+          card_id: collect_truck_num_v1
+        children:
+          - type: container
+            name: delivery
+            children:
+              - type: leaf
+                name: intent
+                fields:
+                  intent: collect
+              - type: container
+                name: interaction
+                fields:
+                  interaction_type: intput.text
+                children:
+                  - type: leaf
+                    name: field
+                    fields:
+                      field: truck_numnber
+                      label: Truck Number
+                      prompt: Please enter your TRUCK number
+                  - type: leaf
+                    name: on_success
+                    fields:
+                      on_success: "{ truck_number_filled: true }"
+                  - type: leaf
+                    name: on_error
+                    fields:
+                      on_error: "{ truck_number_filled: false }"
+          - type: container
+            name: Policy
+            children:
+              - type: leaf
+                name: Timeout
+                fields:
+                  timeout_sec: "32"
+          - type: leaf
+            name: Pre-Condition
+            fields:
+              pre_condition: state.truck_number_filled == False
+          - type: leaf
+            name: Post Effect
+            fields:
+              post_effect: state.truck_number_filled = True
