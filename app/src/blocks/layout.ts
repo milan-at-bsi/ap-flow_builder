@@ -17,6 +17,22 @@ function getFieldsHeight(node: Node): number {
   return fields.length > 0 ? fields.length * FIELD_ROW_H + 8 : 0
 }
 
+// Check if children should be laid out horizontally
+function hasHorizontalChildren(node: Node, allNodes: Node[]): boolean {
+  if (node.type !== 'container') return false
+  const childIds: string[] = (node.data?.childIds as string[]) ?? []
+  if (childIds.length === 0) return false
+  
+  // Check if any child has map_placement: horizontal
+  for (const cid of childIds) {
+    const child = allNodes.find((n) => n.id === cid)
+    if (child?.data?.map_placement === 'horizontal') {
+      return true
+    }
+  }
+  return false
+}
+
 // Get the height of a node (leaf or container)
 export function getNodeHeight(node: Node, allNodes: Node[]): number {
   if (node.type === 'leaf') {
@@ -31,27 +47,55 @@ export function getNodeHeight(node: Node, allNodes: Node[]): number {
   const fieldsH = getFieldsHeight(node)
   if (childIds.length === 0) return HEADER + fieldsH + PADDING * 2 + DROP_ZONE_H
 
-  let totalChildH = 0
-  for (const cid of childIds) {
-    const child = allNodes.find((n) => n.id === cid)
-    if (child) totalChildH += getNodeHeight(child, allNodes)
+  // Check if children should be laid out horizontally
+  const isHorizontal = hasHorizontalChildren(node, allNodes)
+
+  if (isHorizontal) {
+    // For horizontal layout, use the max child height
+    let maxChildH = 0
+    for (const cid of childIds) {
+      const child = allNodes.find((n) => n.id === cid)
+      if (child) maxChildH = Math.max(maxChildH, getNodeHeight(child, allNodes))
+    }
+    return HEADER + fieldsH + PADDING * 2 + maxChildH + GAP + DROP_ZONE_H
+  } else {
+    // For vertical layout, sum all child heights
+    let totalChildH = 0
+    for (const cid of childIds) {
+      const child = allNodes.find((n) => n.id === cid)
+      if (child) totalChildH += getNodeHeight(child, allNodes)
+    }
+    return HEADER + fieldsH + PADDING * 2 + totalChildH + childIds.length * GAP + DROP_ZONE_H
   }
-  return HEADER + fieldsH + PADDING * 2 + totalChildH + childIds.length * GAP + DROP_ZONE_H
 }
 
 // Get the width of a node
 export function getNodeWidth(node: Node, allNodes: Node[]): number {
   if (node.type === 'leaf') return 180
-  // Container: compute based on widest child + padding
+  // Container: compute based on children
   const childIds: string[] = (node.data?.childIds as string[]) ?? []
   if (childIds.length === 0) return CONTAINER_BASE_W
 
-  let maxChildW = 0
-  for (const cid of childIds) {
-    const child = allNodes.find((n) => n.id === cid)
-    if (child) maxChildW = Math.max(maxChildW, getNodeWidth(child, allNodes))
+  // Check if children should be laid out horizontally
+  const isHorizontal = hasHorizontalChildren(node, allNodes)
+
+  if (isHorizontal) {
+    // For horizontal layout, sum all child widths + gaps
+    let totalChildW = 0
+    for (const cid of childIds) {
+      const child = allNodes.find((n) => n.id === cid)
+      if (child) totalChildW += getNodeWidth(child, allNodes)
+    }
+    return Math.max(MIN_WIDTH, totalChildW + (childIds.length - 1) * GAP + PADDING * 2)
+  } else {
+    // For vertical layout, use the widest child
+    let maxChildW = 0
+    for (const cid of childIds) {
+      const child = allNodes.find((n) => n.id === cid)
+      if (child) maxChildW = Math.max(maxChildW, getNodeWidth(child, allNodes))
+    }
+    return Math.max(MIN_WIDTH, maxChildW + PADDING * 2)
   }
-  return Math.max(MIN_WIDTH, maxChildW + PADDING * 2)
 }
 
 export function getContainerDropZone(container: Node, allNodes: Node[]) {
@@ -114,15 +158,34 @@ export function relayoutChildren(nodes: Node[], containerId: string): Node[] {
   const fieldsH = getFieldsHeight(container)
   const startY = HEADER + fieldsH + PADDING
 
-  return nodes.map((n) => {
-    const idx = childIds.indexOf(n.id)
-    if (idx === -1) return n
-    // Calculate y based on heights of previous children
-    let yPos = startY
-    for (let i = 0; i < idx; i++) {
-      const prevChild = nodes.find((nd) => nd.id === childIds[i])
-      if (prevChild) yPos += getNodeHeight(prevChild, nodes) + GAP
-    }
-    return { ...n, position: { x: PADDING, y: yPos } }
-  })
+  // Check if children should be laid out horizontally
+  const isHorizontal = hasHorizontalChildren(container, nodes)
+
+  if (isHorizontal) {
+    // Horizontal layout: position children side-by-side
+    return nodes.map((n) => {
+      const idx = childIds.indexOf(n.id)
+      if (idx === -1) return n
+      // Calculate x based on widths of previous children
+      let xPos = PADDING
+      for (let i = 0; i < idx; i++) {
+        const prevChild = nodes.find((nd) => nd.id === childIds[i])
+        if (prevChild) xPos += getNodeWidth(prevChild, nodes) + GAP
+      }
+      return { ...n, position: { x: xPos, y: startY } }
+    })
+  } else {
+    // Vertical layout: position children stacked
+    return nodes.map((n) => {
+      const idx = childIds.indexOf(n.id)
+      if (idx === -1) return n
+      // Calculate y based on heights of previous children
+      let yPos = startY
+      for (let i = 0; i < idx; i++) {
+        const prevChild = nodes.find((nd) => nd.id === childIds[i])
+        if (prevChild) yPos += getNodeHeight(prevChild, nodes) + GAP
+      }
+      return { ...n, position: { x: PADDING, y: yPos } }
+    })
+  }
 }

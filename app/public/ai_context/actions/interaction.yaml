@@ -1,0 +1,376 @@
+# =============================================================================
+# AI CONTEXT: interaction Block
+# Workspace: Actions
+# =============================================================================
+
+block_name: "interaction"
+block_type: container
+workspace: actions
+
+# -----------------------------------------------------------------------------
+# CORE INTENT
+# -----------------------------------------------------------------------------
+intent: |
+  Defines HOW to interact with users in a semantic, surface-agnostic way.
+  Provides enough semantic context so the interaction can be adaptively
+  rendered and executed across multiple surfaces (display kiosk, mobile app,
+  voice assistant, etc.) without changing the definition.
+
+description: |
+  The interaction block is a container within delivery that specifies the
+  mechanism for user interaction. It defines WHAT type of interaction occurs
+  and the details needed to execute it, while remaining independent of any
+  specific UI implementation.
+  
+  Key behaviors:
+  - `interaction_type` defines the category of interaction (input.text, acknowledge)
+  - Contains `field` blocks defining the data to collect
+  - Contains `on_success` and `on_error` handlers for response processing
+  - Same definition can render differently on different surfaces
+  - Focuses on semantic meaning, not visual presentation
+  
+  Surface-adaptive design:
+  - Definition is written once
+  - Each surface (kiosk, mobile, voice) interprets and renders appropriately
+  - Enables multi-channel deployment without rewriting interactions
+
+# -----------------------------------------------------------------------------
+# SEMANTIC ROLE
+# -----------------------------------------------------------------------------
+semantic_role: data_collection
+
+# -----------------------------------------------------------------------------
+# FIELD DEFINITIONS
+# -----------------------------------------------------------------------------
+fields:
+  interaction_type:
+    intent: "Specifies the type of interaction to perform"
+    description: |
+      The interaction_type field defines the category of user interaction.
+      Each type provides semantic meaning that surfaces can interpret:
+      - input.text: User provides text input (renders as keyboard on kiosk, native input on mobile)
+      - acknowledge: User confirms receipt (renders as button/gesture/voice confirmation)
+    value_type: text
+    required: true
+    default_behavior: |
+      Defaults to "input.text" if not specified.
+    valid_values:
+      - input.text: "User provides text input via keyboard, touch, or other means"
+      - acknowledge: "User confirms/acknowledges information (no data entry)"
+    examples:
+      - "input.text"
+      - "acknowledge"
+
+# -----------------------------------------------------------------------------
+# STRUCTURAL CONSTRAINTS
+# -----------------------------------------------------------------------------
+allowed_children:
+  - field       # Data field definition (name, label, prompt)
+  - on_success  # Success handler expression
+  - on_error    # Error handler expression
+
+required_children:
+  min: 0
+  max: null
+  types:
+    - field  # For input.text interactions, field is needed
+
+allowed_parents:
+  - delivery  # interaction can only exist inside delivery
+
+# -----------------------------------------------------------------------------
+# RESTRICTIONS & RULES
+# -----------------------------------------------------------------------------
+restrictions:
+  - "interaction blocks can ONLY exist as direct children of delivery"
+  - "For input.text interactions, at least one field should be defined"
+  - "on_success and on_error should reference the same state variables"
+  - "interaction_type must match the delivery's intent (collect → input.text)"
+  - "Keep definitions semantic, not implementation-specific"
+
+# -----------------------------------------------------------------------------
+# RELATIONSHIPS
+# -----------------------------------------------------------------------------
+relationships:
+  requires:
+    - delivery  # interaction must have a delivery parent
+  
+  pairs_with:
+    - field       # For data collection
+    - on_success  # Success handling
+    - on_error    # Error handling
+  
+  typically_preceded_by:
+    - intent  # Inside delivery, intent comes before interaction
+  
+  typically_followed_by: null  # interaction is usually the last child of delivery
+
+# -----------------------------------------------------------------------------
+# USAGE EXAMPLES
+# -----------------------------------------------------------------------------
+examples:
+  - name: "Simple Text Input"
+    description: "Basic text input interaction"
+    yaml: |
+      interaction:
+        - interaction_type: input.text
+        - field:
+            - field: truck_number
+            - label: Truck Number
+            - prompt: Enter your truck number
+
+  - name: "Text Input with Handlers"
+    description: "Text input with success and error state updates"
+    yaml: |
+      interaction:
+        - interaction_type: input.text
+        - field:
+            - field: truck_number
+            - label: Truck Number
+            - prompt: Please enter your TRUCK number
+        - on_success:
+            - on_success: "{ truck_number_filled: true }"
+        - on_error:
+            - on_error: "{ truck_number_filled: false }"
+
+  - name: "Acknowledgement Interaction"
+    description: "Simple acknowledgement (no data entry)"
+    yaml: |
+      interaction:
+        - interaction_type: acknowledge
+
+  - name: "Multiple Fields"
+    description: "Collecting multiple related fields in one interaction"
+    yaml: |
+      interaction:
+        - interaction_type: input.text
+        - field:
+            - field: driver_name
+            - label: Driver Name
+            - prompt: Enter your full name
+        - field:
+            - field: driver_phone
+            - label: Phone Number
+            - prompt: Enter your contact number
+        - on_success:
+            - on_success: "{ driver_info_filled: true }"
+        - on_error:
+            - on_error: "{ driver_info_filled: false }"
+
+  - name: "In Delivery Context"
+    description: "How interaction fits inside delivery"
+    yaml: |
+      delivery:
+        - intent:
+            - intent: collect
+        - interaction:
+            - interaction_type: input.text
+            - field:
+                - field: truck_number
+                - label: Truck Number
+                - prompt: Please enter your truck number
+            - on_success:
+                - on_success: "{ truck_number_filled: true }"
+            - on_error:
+                - on_error: "{ truck_number_filled: false }"
+
+  - name: "In Full Card Context"
+    description: "interaction in a complete Card structure"
+    yaml: |
+      Card:
+        - card_id: collect_truck_num_v1
+        - delivery:
+            - intent:
+                - intent: collect
+            - interaction:
+                - interaction_type: input.text
+                - field:
+                    - field: truck_number
+                    - label: Truck Number
+                    - prompt: Please enter your truck number
+                - on_success:
+                    - on_success: "{ truck_number_filled: true }"
+                - on_error:
+                    - on_error: "{ truck_number_filled: false }"
+        - Policy:
+            - Timeout:
+                - timeout_sec: "30"
+        - Pre-Condition:
+            - pre_condition: state.truck_number_filled == False
+        - Post Effect:
+            - post_effect: state.truck_number_filled = True
+
+# -----------------------------------------------------------------------------
+# COMMON MISTAKES
+# -----------------------------------------------------------------------------
+common_mistakes:
+  - mistake: "Placing interaction outside of delivery"
+    correction: "interaction blocks must always be inside delivery"
+    example_wrong: |
+      Card:
+        - card_id: my_card
+        - interaction:  # Error: Not inside delivery!
+            - interaction_type: input.text
+    example_correct: |
+      Card:
+        - card_id: my_card
+        - delivery:
+            - intent:
+                - intent: collect
+            - interaction:  # Correct: Inside delivery
+                - interaction_type: input.text
+
+  - mistake: "Missing field for input.text interaction"
+    correction: "input.text interactions should have at least one field"
+    example_wrong: |
+      interaction:
+        - interaction_type: input.text
+        # Missing field definition!
+        - on_success:
+            - on_success: "{ filled: true }"
+    example_correct: |
+      interaction:
+        - interaction_type: input.text
+        - field:
+            - field: data_field
+            - label: Label
+            - prompt: Enter data
+        - on_success:
+            - on_success: "{ filled: true }"
+
+  - mistake: "Mismatched intent and interaction_type"
+    correction: "intent and interaction_type should be consistent"
+    example_wrong: |
+      delivery:
+        - intent:
+            - intent: collect  # Wants to collect
+        - interaction:
+            - interaction_type: acknowledge  # But no input method!
+    example_correct: |
+      delivery:
+        - intent:
+            - intent: collect
+        - interaction:
+            - interaction_type: input.text  # Matching input method
+            - field: ...
+
+  - mistake: "Adding UI-specific details"
+    correction: "Keep definitions semantic, not implementation-specific"
+    example_wrong: |
+      interaction:
+        - interaction_type: input.text
+        - field:
+            - field: truck_number
+            - font_size: 24px  # Error: UI-specific!
+            - keyboard: numeric  # Error: Implementation detail!
+    example_correct: |
+      interaction:
+        - interaction_type: input.text
+        - field:
+            - field: truck_number
+            - label: Truck Number
+            - prompt: Enter your truck number
+            # Surface interprets and applies appropriate UI
+
+  - mistake: "Using '- type: leaf' or '- type:' syntax for interaction_type"
+    correction: "The field is 'interaction_type', NOT 'type'. NEVER use '- type: leaf' or '- type: container' inside interaction blocks"
+    example_wrong: |
+      interaction:
+        - type: leaf  # WRONG: This is NOT a valid field!
+        - interaction_type: input.text
+    example_correct: |
+      interaction:
+        - interaction_type: input.text  # Correct: Use interaction_type only
+
+  - mistake: "Confusing block type with interaction_type field"
+    correction: "interaction_type is a FIELD VALUE like 'input.text' or 'acknowledge', not a block type declaration"
+    example_wrong: |
+      interaction:
+        - type: container  # WRONG: Don't add type here!
+        - interaction_type: input.text
+    example_correct: |
+      interaction:
+        - interaction_type: input.text
+        - field:
+            - field: truck_number
+            - label: Truck Number
+            - prompt: Enter your truck number
+
+# -----------------------------------------------------------------------------
+# GENERATION HINTS
+# -----------------------------------------------------------------------------
+generation_hints:
+  use_when:
+    - "Defining how to collect data from users"
+    - "Need to specify text input or acknowledgement interactions"
+    - "Creating surface-agnostic interaction definitions"
+    - "User mentions entering, inputting, or acknowledging"
+  
+  do_not_use_when:
+    - "There is no parent delivery block"
+    - "The card doesn't need user interaction"
+  
+  keywords:
+    - "input"
+    - "enter"
+    - "type"
+    - "acknowledge"
+    - "confirm"
+    - "text"
+    - "collect"
+    - "keyboard"
+
+# -----------------------------------------------------------------------------
+# INTERACTION TYPES
+# -----------------------------------------------------------------------------
+interaction_types: |
+  Currently Available:
+  
+  input.text:
+    - Purpose: Collect text input from user
+    - Requires: field definition (field, label, prompt)
+    - Surfaces:
+      - Kiosk: Full virtual keyboard
+      - Mobile: Native text input with device keyboard
+      - Voice: Speech-to-text capture
+  
+  acknowledge:
+    - Purpose: User confirms/acknowledges information
+    - Requires: No field needed
+    - Surfaces:
+      - Kiosk: Confirmation button
+      - Mobile: Tap to confirm
+      - Voice: Voice confirmation ("yes", "ok")
+  
+  Future types might include:
+    - input.number: Numeric input
+    - input.date: Date picker
+    - input.select: Selection from options
+    - input.signature: Signature capture
+
+# -----------------------------------------------------------------------------
+# SURFACE ADAPTATION
+# -----------------------------------------------------------------------------
+surface_adaptation: |
+  The interaction block provides WHAT to do, each surface decides HOW:
+  
+  ┌─────────────────────────────────────────────────────────────────┐
+  │                    interaction Definition                       │
+  │  interaction_type: input.text                                   │
+  │  field: truck_number                                            │
+  │  prompt: "Enter your truck number"                              │
+  └─────────────────────────────────────────────────────────────────┘
+                               │
+           ┌───────────────────┼───────────────────┐
+           ▼                   ▼                   ▼
+    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+    │   Kiosk     │    │   Mobile    │    │   Voice     │
+    │             │    │             │    │             │
+    │ Full screen │    │ Native text │    │ "Please     │
+    │ keyboard    │    │ input field │    │ say your    │
+    │ Large touch │    │ Device      │    │ truck       │
+    │ buttons     │    │ keyboard    │    │ number"     │
+    └─────────────┘    └─────────────┘    └─────────────┘
+  
+  Same semantic definition → Different UI implementations
+  Write once → Deploy everywhere

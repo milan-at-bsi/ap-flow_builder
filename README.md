@@ -7,10 +7,13 @@ A visual flow builder application with a PostgreSQL backend for storing and mana
 - **Visual Flow Builder**: Drag-and-drop interface for creating protocol flows
 - **PlanSpace Generation**: Automatically generates PlanSpace YAML from flow diagrams
 - **Flow Management**: Create, save, open, and delete flows via a top ribbon toolbar
+- **AI Assistant**: Built-in AI chat for help building flows (powered by Claude)
 - **PostgreSQL Backend**: Persistent storage with full CRUD API
-- **Swagger/OpenAPI Documentation**: Interactive API documentation
+- **Swagger/OpenAPI Documentation**: Interactive API documentation (link in sidebar)
+- **Raw YAML Endpoints**: Get flow and PlanSpace YAML directly as text/yaml
 - **Theme Support**: Toggle between light and dark themes
 - **Docker Support**: Easy deployment with Docker Compose
+- **Python API Demo**: Example script demonstrating all API endpoints
 
 ---
 
@@ -175,6 +178,9 @@ protocol_builder/
 │   ├── package.json
 │   └── Dockerfile
 │
+├── examples/                 # Example scripts
+│   └── api_demo.py          # Python API demo script
+│
 ├── docker-compose.yml        # Docker orchestration
 ├── init.sql                  # Database schema & seed data
 └── README.md
@@ -247,22 +253,52 @@ Edit CSS variables in `app/src/index.css`:
 
 ### Endpoints
 
+#### Health
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/health` | Health check |
+
+#### Flows (JSON)
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/flows` | List all flows |
 | POST | `/api/flows` | Create new flow |
-| GET | `/api/flows/external/{externalId}` | Get flow by external ID |
 | GET | `/api/flows/{id}` | Get flow by database ID |
+| GET | `/api/flows/external/{externalId}` | Get flow by external ID |
 | PUT | `/api/flows/{id}` | Update flow |
 | DELETE | `/api/flows/{id}` | Delete flow |
-| GET | `/health` | Health check |
+
+#### Flows (Raw YAML)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/flows/{id}/flow.yaml` | Get raw flow YAML |
+| GET | `/api/flows/{id}/planspace.yaml` | Get raw PlanSpace YAML |
+| GET | `/api/flows/external/{externalId}/flow.yaml` | Get raw flow YAML by external ID |
+| GET | `/api/flows/external/{externalId}/planspace.yaml` | Get raw PlanSpace YAML by external ID |
+
+#### AI Assistant
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/ai/status` | Check if AI is configured |
+| POST | `/api/ai/chat` | Chat with AI (non-streaming) |
+| POST | `/api/ai/chat/stream` | Chat with AI (streaming SSE) |
+
+#### Documentation
+| Method | Endpoint | Description |
+|--------|----------|-------------|
 | GET | `/api-docs` | Swagger UI |
 | GET | `/openapi.json` | OpenAPI spec as JSON |
 
 ### Example: Fetch Flow by External ID
 
 ```bash
-curl http://localhost:3001/api/flows/external/vehicle-access-v1
+curl http://localhost:3001/api/flows/external/111
+```
+
+### Example: Get Raw PlanSpace YAML
+
+```bash
+curl http://localhost:3001/api/flows/external/111/planspace.yaml
 ```
 
 ### Example: Create a Flow
@@ -277,6 +313,24 @@ curl -X POST http://localhost:3001/api/flows \
     "plan_yaml": "PlanSpace:\n  Actions: []"
   }'
 ```
+
+### Python API Demo
+
+A complete Python script demonstrating all API endpoints is included:
+
+```bash
+# Install dependency
+pip install requests
+
+# Run the demo
+python examples/api_demo.py
+```
+
+The demo script shows how to:
+- Check health status
+- List, create, update, and delete flows
+- Get raw YAML content
+- Chat with the AI assistant
 
 ---
 
@@ -344,16 +398,56 @@ docker-compose up -d
 
 ## Seed Data
 
-The database is seeded with a sample "Vehicle Access Protocol" flow on first startup:
+The database is seeded with two example flows on first startup:
 
-- **Name**: Vehicle Access Protocol
-- **External ID**: `vehicle-access-v1`
-- **Contains**: Sample flow with Fill Data, Switch, Case, and Access Decision blocks
+### 1. Protocol: Base Case Truck
+- **External ID**: `111`
+- **Workspace**: Protocols
+- **Contains**: Fill Data, Switch, Case (bobtail, truck and trailer, pedestrian, other), Access Decision
 
-Fetch it with:
 ```bash
-curl http://localhost:3001/api/flows/external/vehicle-access-v1
+# Fetch the flow
+curl http://localhost:3001/api/flows/external/111
+
+# Get raw PlanSpace YAML
+curl http://localhost:3001/api/flows/external/111/planspace.yaml
 ```
+
+### 2. Action: Base Case Truck Number 2 Cards
+- **External ID**: `2222`
+- **Workspace**: Actions
+- **Contains**: Two Cards with State List, Goal State, Pre-Conditions, Post Effects, Timeout
+
+```bash
+# Fetch the flow
+curl http://localhost:3001/api/flows/external/2222
+
+# Get raw flow YAML
+curl http://localhost:3001/api/flows/external/2222/flow.yaml
+```
+
+---
+
+## AI Assistant Configuration
+
+To enable the AI assistant, set the `ANTHROPIC_API_KEY` environment variable:
+
+### For Local Development
+
+Create `api/.env`:
+```
+ANTHROPIC_API_KEY=sk-ant-api03-...
+```
+
+### For Docker
+
+Add to `docker-compose.yml` under the `api` service:
+```yaml
+environment:
+  ANTHROPIC_API_KEY: sk-ant-api03-...
+```
+
+The AI assistant appears in the right sidebar (🤖 AI tab) and can help build flows in both the Protocols and Actions workspaces.
 
 ---
 

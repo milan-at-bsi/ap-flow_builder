@@ -1,0 +1,54 @@
+# =============================================================================
+# AI CONTEXT: vehicle_type Block
+# Workspace: Protocols
+# =============================================================================
+# TODO: Fill in detailed context using _EXAMPLE_BLOCK.yaml as reference
+# =============================================================================
+
+block_name: "vehicle_type"
+block_type: leaf
+workspace: protocols
+
+intent: |
+  Data field for capturing the type of vehicle entering the facility.
+  Common values include: truck, bobtail, personal, visitor.
+
+description: |
+  TODO: Add detailed description
+
+semantic_role: data_collection
+
+fields: {}  # data_field blocks typically have no additional fields
+
+allowed_children: null  # Leaf block
+
+allowed_parents:
+  - Fill Data
+
+restrictions:
+  - "Must be placed inside a Fill Data container"
+  - "Typically collected early in the flow for branching decisions"
+
+relationships:
+  requires:
+    - Fill Data
+  pairs_with: null
+  typically_preceded_by: null
+  typically_followed_by:
+    - Switch  # Often used for branching after collection
+
+examples:
+  - name: "In Fill Data"
+    yaml: |
+      Fill Data:
+        - vehicle_type
+
+generation_hints:
+  use_when:
+    - "Need to know what type of vehicle is entering"
+    - "Flow branches based on vehicle classification"
+  keywords:
+    - "vehicle type"
+    - "what kind of vehicle"
+    - "truck or car"
+    - "vehicle classification"

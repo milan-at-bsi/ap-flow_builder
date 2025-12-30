@@ -1,0 +1,330 @@
+# =============================================================================
+# AI CONTEXT: State List Block
+# Workspace: Actions
+# =============================================================================
+
+block_name: "State List"
+block_type: container
+workspace: actions
+
+# -----------------------------------------------------------------------------
+# CORE INTENT
+# -----------------------------------------------------------------------------
+intent: |
+  Declares and initializes the state variables that a specific Card introduces 
+  to the system. State List acts as a definition block that specifies which 
+  states this Card creates, uses, or affects, along with their initial values.
+  The system's total state model is the aggregate of all State Lists from all Cards.
+
+description: |
+  A State List is a container within a Card that explicitly defines and 
+  initializes the state variables associated with that Card. Each state 
+  variable is declared with an initial value (typically False or 0).
+  
+  Key behaviors:
+  - Contains `state` leaf blocks, each with a field_name: initial_value format
+  - State variables are initialized with their default values (False, 0, etc.)
+  - Does NOT track runtime state - it DEFINES and INITIALIZES states
+  - System state is built from the aggregate of all Card State Lists
+  - States vary based on the Card's specific purpose and aim
+  
+  **STATE FORMAT:**
+  States are declared as `- field_name: initial_value` NOT `- name: field_name`
+  
+  Example:
+  ```yaml
+  - state:
+      - truck_number_filled: False
+  ```
+
+# -----------------------------------------------------------------------------
+# SEMANTIC ROLE
+# -----------------------------------------------------------------------------
+semantic_role: grouping
+
+# -----------------------------------------------------------------------------
+# FIELD DEFINITIONS
+# -----------------------------------------------------------------------------
+fields: {}  # State List has no fields - it only contains state children
+
+# -----------------------------------------------------------------------------
+# STRUCTURAL CONSTRAINTS
+# -----------------------------------------------------------------------------
+allowed_children:
+  - state  # Only state leaf blocks are valid children
+
+required_children:
+  min: 1
+  max: null
+  types:
+    - state  # Should have at least one state definition
+
+allowed_parents:
+  - Card  # State List can only exist inside Cards
+
+# -----------------------------------------------------------------------------
+# RESTRICTIONS & RULES
+# -----------------------------------------------------------------------------
+restrictions:
+  - "State List blocks can ONLY exist as direct children of a Card"
+  - "State List should only contain `state` blocks"
+  - "Each state must have an initial value (False, 0, etc.)"
+  - "State names should match those used in Pre-Conditions and Post Effects"
+  - "Use format: `- field_name: initial_value` NOT `- name: field_name`"
+
+# -----------------------------------------------------------------------------
+# RELATIONSHIPS
+# -----------------------------------------------------------------------------
+relationships:
+  requires:
+    - Card  # State List must have a Card parent
+  
+  pairs_with:
+    - state          # Contains state definitions
+    - Pre-Condition  # States declared here are used in pre-conditions
+    - Post Effect    # States declared here are modified in post-effects
+  
+  typically_preceded_by: null  # Order within Card varies
+  
+  typically_followed_by:
+    - delivery  # Often followed by delivery content
+
+# -----------------------------------------------------------------------------
+# USAGE EXAMPLES
+# -----------------------------------------------------------------------------
+examples:
+  - name: "Simple Field Tracking State"
+    description: "State List for a card that collects truck number"
+    yaml: |
+      State List:
+        - state:
+            - truck_number_filled: False
+
+  - name: "Multiple States"
+    description: "State List with field tracking, timeout, and retry states"
+    yaml: |
+      State List:
+        - state:
+            - truck_number_filled: False
+        - state:
+            - collect_truck_num_v1_timeout: False
+        - state:
+            - collect_truck_num_v1_maxretries: 0
+
+  - name: "Custom States for Card Purpose"
+    description: "States specific to a verification card"
+    yaml: |
+      State List:
+        - state:
+            - driver_verified: False
+        - state:
+            - verification_attempts: 0
+        - state:
+            - verification_failed: False
+        - state:
+            - verification_expired: False
+
+  - name: "Acknowledgement Card States"
+    description: "States for a card that sends acknowledgements"
+    yaml: |
+      State List:
+        - state:
+            - receipt_acknowledged: False
+        - state:
+            - acknowledge_timeout: False
+
+  - name: "In Card Context"
+    description: "How State List fits inside a complete Card"
+    yaml: |
+      Card:
+        - card_id: collect_truck_num_v1
+        - State List:
+            - state:
+                - truck_number_filled: False
+            - state:
+                - collect_truck_num_v1_timeout: False
+            - state:
+                - collect_truck_num_v1_error: False
+        - delivery:
+            - intent:
+                - intent: collect
+            - interaction:
+                - interaction_type: input.text
+                - field:
+                    - field: truck_number
+                    - label: Truck Number
+                    - prompt: Enter truck number
+        - Pre-Conditions List:
+            - Pre-Condition:
+                - pre_condition: state.truck_number_filled == False
+        - post_effects:
+            - Post Effect:
+                - post_effect: state.truck_number_filled = True
+
+  - name: "Multi-Field Card States"
+    description: "State List for a card collecting multiple pieces of data"
+    yaml: |
+      State List:
+        - state:
+            - driver_name_filled: False
+        - state:
+            - driver_license_filled: False
+        - state:
+            - driver_info_complete: False
+        - state:
+            - driver_info_card_timeout: False
+
+# -----------------------------------------------------------------------------
+# COMMON MISTAKES
+# -----------------------------------------------------------------------------
+common_mistakes:
+  - mistake: "Using '- name: field_name' instead of '- field_name: value'"
+    correction: "State variables must include their initial value"
+    example_wrong: |
+      State List:
+        - state:
+            - name: truck_number_filled  # WRONG: Missing initial value!
+    example_correct: |
+      State List:
+        - state:
+            - truck_number_filled: False  # Correct: Has initial value
+
+  - mistake: "Placing State List outside of a Card"
+    correction: "State List blocks must always be inside a Card"
+    example_wrong: |
+      Action:
+        - action: my_action
+        - State List:  # Error: Not inside Card!
+            - state:
+                - some_state: False
+    example_correct: |
+      Action:
+        - action: my_action
+        - Card:
+            - card_id: my_card
+            - State List:  # Correct: Inside Card
+                - state:
+                    - some_state: False
+
+  - mistake: "State names not matching Pre-Conditions/Post Effects"
+    correction: "Ensure state names in State List match those used in conditions"
+    example_wrong: |
+      Card:
+        - State List:
+            - state:
+                - truck_filled: False  # Mismatched name
+        - Pre-Conditions List:
+            - Pre-Condition:
+                - pre_condition: state.truck_number_filled == False  # Different name!
+    example_correct: |
+      Card:
+        - State List:
+            - state:
+                - truck_number_filled: False  # Matches
+        - Pre-Conditions List:
+            - Pre-Condition:
+                - pre_condition: state.truck_number_filled == False  # Same name
+
+  - mistake: "Empty State List"
+    correction: "State List should contain at least one state definition"
+    example_wrong: |
+      State List:
+        # Empty - no states defined
+    example_correct: |
+      State List:
+        - state:
+            - field_filled: False
+
+  - mistake: "Putting non-state blocks inside State List"
+    correction: "State List should only contain state blocks"
+    example_wrong: |
+      State List:
+        - state:
+            - field_filled: False
+        - Timeout:  # Error: Wrong block type!
+            - timeout_sec: "30"
+    example_correct: |
+      State List:
+        - state:
+            - field_filled: False
+        - state:
+            - card_timeout: False
+
+# -----------------------------------------------------------------------------
+# GENERATION HINTS
+# -----------------------------------------------------------------------------
+generation_hints:
+  use_when:
+    - "Creating a new Card that introduces state variables"
+    - "Documenting what states a Card affects"
+    - "Need to track multiple related states for a Card"
+    - "Want clear visibility into a Card's state dependencies"
+  
+  do_not_use_when:
+    - "There is no parent Card block"
+    - "The Card has no state-related behavior"
+  
+  keywords:
+    - "state"
+    - "track"
+    - "filled"
+    - "timeout"
+    - "error"
+    - "retry"
+    - "complete"
+    - "verified"
+
+# -----------------------------------------------------------------------------
+# STATE NAMING CONVENTIONS
+# -----------------------------------------------------------------------------
+state_naming_conventions: |
+  Common patterns for state variable names and initial values:
+  
+  Field tracking (boolean, initially False):
+  - `{field_name}_filled: False` - Tracks if a field has been collected
+  - `{field_name}_validated: False` - Tracks if a field has been validated
+  - `{field_name}_error: False` - Tracks if a field has an error
+  
+  Card-level states (various types):
+  - `{card_id}_timeout: False` - Tracks if the card has timed out
+  - `{card_id}_maxretries: 0` - Counter for retry attempts
+  - `{card_id}_complete: False` - Tracks if card is fully complete
+  - `{card_id}_error: False` - Tracks card-level errors
+  
+  Custom states (vary by Card purpose):
+  - `driver_verified: False` - For verification cards
+  - `access_granted: False` - For access control cards
+  - `payment_processed: False` - For payment cards
+  - `acknowledgement_sent: False` - For notification cards
+
+# -----------------------------------------------------------------------------
+# SYSTEM STATE MODEL
+# -----------------------------------------------------------------------------
+system_state_model: |
+  The system's total state model is the aggregate of all State Lists:
+  
+  Card 1 State List:
+    - state:
+        - field_a_filled: False
+    - state:
+        - card_1_timeout: False
+  
+  Card 2 State List:
+    - state:
+        - field_b_filled: False
+    - state:
+        - field_b_validated: False
+    - state:
+        - card_2_error: False
+  
+  System Initial State = {
+    field_a_filled: False,
+    card_1_timeout: False,
+    field_b_filled: False,
+    field_b_validated: False,
+    card_2_error: False
+  }
+  
+  Each Card contributes its declared states with initial values to the 
+  overall system state, and Pre-Conditions/Post-Effects reference/modify 
+  these states at runtime.

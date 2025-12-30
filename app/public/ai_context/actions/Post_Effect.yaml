@@ -1,0 +1,430 @@
+# =============================================================================
+# AI CONTEXT: Post Effect Block
+# Workspace: Actions
+# =============================================================================
+
+block_name: "Post Effect"
+block_type: leaf
+workspace: actions
+
+# -----------------------------------------------------------------------------
+# CORE INTENT
+# -----------------------------------------------------------------------------
+intent: |
+  Defines a single state assignment statement that executes after a card
+  completes successfully. Post Effects update system state to reflect the
+  outcome of card execution.
+
+description: |
+  The Post Effect block is a leaf within post_effects that contains a
+  single assignment statement to update the system's state. This assignment
+  typically modifies state variables declared in the State List.
+  
+  Key behaviors:
+  - Contains an assignment in the `post_effect` field
+  - Assignment is executed after card completes successfully
+  - Mutates system state (sets/updates variables)
+  - Works as a pair with Pre-Conditions (gate → execute → update)
+  - Multiple Post Effects execute in sequence
+  
+  Assignment syntax:
+  - State reference: state.{variable_name}
+  - Assignment operator: =
+  - Values: True, False, numbers, strings, expressions
+  
+  Common patterns:
+  - Mark field as filled: state.{field}_filled = True
+  - Record completion: state.{card_id}_completed = True
+  - Reset counter: state.{card_id}_retries = 0
+  - Increment counter: state.{card_id}_attempts = state.{card_id}_attempts + 1
+
+# -----------------------------------------------------------------------------
+# SEMANTIC ROLE
+# -----------------------------------------------------------------------------
+semantic_role: action
+
+# -----------------------------------------------------------------------------
+# FIELD DEFINITIONS
+# -----------------------------------------------------------------------------
+fields:
+  post_effect:
+    intent: "The assignment statement to execute"
+    description: |
+      The post_effect field contains an assignment statement that modifies
+      the system's state. The statement follows this syntax:
+      
+      Basic format: state.{variable} = {value}
+      
+      Assignment operator:
+      - = (single equals sign for assignment)
+      
+      Values:
+      - Boolean: True, False
+      - Numeric: 0, 1, 3, etc.
+      - String: "value" (when needed)
+      - Expression: state.counter + 1 (for increments)
+      
+      The statement MUST reference state variables that are declared in the
+      Card's State List or shared from other cards in the Action.
+    value_type: expression
+    required: true
+    default_behavior: |
+      No default - must be specified explicitly. Without a post_effect
+      assignment, the block serves no purpose.
+    examples:
+      - "state.truck_number_filled = True"
+      - "state.trailer_number_filled = True"
+      - "state.collect_truck_num_v1_completed = True"
+      - "state.collect_truck_num_v1_retries = 0"
+      - "state.verification_attempts = state.verification_attempts + 1"
+
+# -----------------------------------------------------------------------------
+# STRUCTURAL CONSTRAINTS
+# -----------------------------------------------------------------------------
+allowed_children: []  # Leaf block - no children
+
+required_children:
+  min: 0
+  max: 0
+  types: []
+
+allowed_parents:
+  - post_effects  # Post Effect can only exist inside post_effects
+
+# -----------------------------------------------------------------------------
+# RESTRICTIONS & RULES
+# -----------------------------------------------------------------------------
+restrictions:
+  - "Post Effect blocks can ONLY exist as direct children of post_effects"
+  - "The post_effect statement must reference declared state variables"
+  - "State variables must be declared in the Card's State List"
+  - "Use 'state.' prefix when referencing state variables"
+  - "Use '=' for assignment, not '==' (which is comparison)"
+  - "Post effects should logically complement Pre-Conditions List"
+
+# -----------------------------------------------------------------------------
+# RELATIONSHIPS
+# -----------------------------------------------------------------------------
+relationships:
+  requires:
+    - post_effects  # Post Effect must have a post_effects parent
+    - State List    # States referenced should be declared in State List
+  
+  pairs_with:
+    - state          # Updates state variables declared by state blocks
+    - Pre-Condition  # Often paired with Pre-Conditions List that check the same state
+  
+  typically_preceded_by: null  # Order in post_effects is flexible
+  
+  typically_followed_by: null  # Order in post_effects is flexible
+
+# -----------------------------------------------------------------------------
+# USAGE EXAMPLES
+# -----------------------------------------------------------------------------
+examples:
+  - name: "Basic Field Filled Assignment"
+    description: "Mark a field as filled after collection"
+    yaml: |
+      Post Effect:
+        - post_effect: state.truck_number_filled = True
+
+  - name: "Card Completion Assignment"
+    description: "Mark card as completed"
+    yaml: |
+      Post Effect:
+        - post_effect: state.collect_truck_num_v1_completed = True
+
+  - name: "Reset Counter"
+    description: "Reset a retry counter"
+    yaml: |
+      Post Effect:
+        - post_effect: state.collect_truck_num_v1_retries = 0
+
+  - name: "Increment Counter"
+    description: "Increment an attempt counter"
+    yaml: |
+      Post Effect:
+        - post_effect: state.verification_attempts = state.verification_attempts + 1
+
+  - name: "Set to False"
+    description: "Clear or reset a flag"
+    yaml: |
+      Post Effect:
+        - post_effect: state.session_active = False
+
+  - name: "String Assignment"
+    description: "Set a state to a string value"
+    yaml: |
+      Post Effect:
+        - post_effect: state.last_card_completed = "collect_truck_num_v1"
+
+  - name: "In post_effects Container"
+    description: "How Post Effect fits inside post_effects"
+    yaml: |
+      post_effects:
+        - Post Effect:
+            - post_effect: state.truck_number_filled = True
+        - Post Effect:
+            - post_effect: state.collect_truck_num_v1_completed = True
+
+  - name: "Complete Card Context"
+    description: "Post Effect in full card flow"
+    yaml: |
+      Card:
+        - card_id: collect_truck_num_v1
+        - State List:
+            - state:
+                - name: truck_number_filled
+            - state:
+                - name: collect_truck_num_v1_completed
+        - delivery:
+            - intent:
+                - intent: collect
+            - interaction:
+                - interaction_type: input.text
+                - field:
+                    - field: truck_number
+                    - label: Truck Number
+                    - prompt: Enter truck number
+        - Policy:
+            - Timeout:
+                - timeout_sec: "30"
+        - Pre-Conditions List:
+            - Pre-Condition:
+                - pre_condition: state.truck_number_filled == False
+        - post_effects:
+            - Post Effect:
+                - post_effect: state.truck_number_filled = True
+            - Post Effect:
+                - post_effect: state.collect_truck_num_v1_completed = True
+
+  - name: "Pre-Condition / Post Effect Pairing"
+    description: "How Post Effect complements Pre-Condition"
+    yaml: |
+      # Before card runs: state.truck_number_filled = False
+      # Pre-condition checks: state.truck_number_filled == False → TRUE
+      # Card executes...
+      # Post effect assigns: state.truck_number_filled = True
+      # Next pre-condition check: state.truck_number_filled == False → FALSE
+      # Card won't run again!
+      
+      Card:
+        - card_id: collect_truck_num_v1
+        - State List:
+            - state:
+                - name: truck_number_filled
+        - Pre-Conditions List:
+            - Pre-Condition:
+                - pre_condition: state.truck_number_filled == False
+        - post_effects:
+            - Post Effect:
+                - post_effect: state.truck_number_filled = True
+
+  - name: "Sequential Card Dependencies"
+    description: "Post effect enables next card's pre-condition"
+    yaml: |
+      # Card A completes and sets state
+      Card:
+        - card_id: collect_truck_num_v1
+        - State List:
+            - state:
+                - name: truck_number_filled
+        - post_effects:
+            - Post Effect:
+                - post_effect: state.truck_number_filled = True
+      
+      # Card B waits for Card A's state
+      Card:
+        - card_id: collect_trailer_num_v1
+        - State List:
+            - state:
+                - name: truck_number_filled  # From Card A
+            - state:
+                - name: trailer_number_filled
+        - Pre-Conditions List:
+            - Pre-Condition:
+                - pre_condition: state.truck_number_filled == True  # Card A must be done
+
+# -----------------------------------------------------------------------------
+# COMMON MISTAKES
+# -----------------------------------------------------------------------------
+common_mistakes:
+  - mistake: "Placing Post Effect outside of post_effects"
+    correction: "Post Effect blocks must always be inside post_effects"
+    example_wrong: |
+      Card:
+        - card_id: my_card
+        - Post Effect:  # Error: Not inside post_effects!
+            - post_effect: state.filled = True
+    example_correct: |
+      Card:
+        - card_id: my_card
+        - post_effects:
+            - Post Effect:  # Correct: Inside post_effects
+                - post_effect: state.filled = True
+
+  - mistake: "Using comparison (==) instead of assignment (=)"
+    correction: "Use = for assignment in post_effects"
+    example_wrong: |
+      Post Effect:
+        - post_effect: state.truck_number_filled == True  # Error: Comparison!
+    example_correct: |
+      Post Effect:
+        - post_effect: state.truck_number_filled = True  # Correct: Assignment
+
+  - mistake: "Referencing undeclared state variables"
+    correction: "All states must be declared in State List"
+    example_wrong: |
+      Card:
+        - card_id: my_card
+        - State List:
+            - state:
+                - name: truck_number_filled
+        - post_effects:
+            - Post Effect:
+                - post_effect: state.driver_verified = True  # Error: Not declared!
+    example_correct: |
+      Card:
+        - card_id: my_card
+        - State List:
+            - state:
+                - name: truck_number_filled
+            - state:
+                - name: driver_verified  # Now declared
+        - post_effects:
+            - Post Effect:
+                - post_effect: state.driver_verified = True
+
+  - mistake: "Missing 'state.' prefix"
+    correction: "Always use 'state.' prefix when referencing state variables"
+    example_wrong: |
+      Post Effect:
+        - post_effect: truck_number_filled = True  # Error: Missing state.!
+    example_correct: |
+      Post Effect:
+        - post_effect: state.truck_number_filled = True  # Correct
+
+  - mistake: "Mismatched Pre-Conditions List and post_effects"
+    correction: "Post effect should invalidate pre_condition to prevent re-execution"
+    example_wrong: |
+      # Pre-condition checks truck_number_filled
+      # But post_effect sets something else!
+      Pre-Conditions List:
+        - Pre-Condition:
+            - pre_condition: state.truck_number_filled == False
+      post_effects:
+        - Post Effect:
+            - post_effect: state.something_else = True  # Won't prevent re-run!
+    example_correct: |
+      # Pre-condition and post-effect reference the same state
+      Pre-Conditions List:
+        - Pre-Condition:
+            - pre_condition: state.truck_number_filled == False
+      post_effects:
+        - Post Effect:
+            - post_effect: state.truck_number_filled = True  # Prevents re-run!
+
+# -----------------------------------------------------------------------------
+# GENERATION HINTS
+# -----------------------------------------------------------------------------
+generation_hints:
+  use_when:
+    - "Card needs to update state after execution"
+    - "Recording that data was collected"
+    - "Marking steps as complete"
+    - "Updating counters or flags"
+    - "Enabling dependent cards to run"
+  
+  do_not_use_when:
+    - "There is no parent post_effects container"
+    - "Card shouldn't modify state"
+    - "No state change is needed after card completion"
+  
+  keywords:
+    - "set"
+    - "mark"
+    - "update"
+    - "assign"
+    - "complete"
+    - "filled"
+    - "done"
+    - "after"
+    - "then"
+    - "enable"
+
+# -----------------------------------------------------------------------------
+# ASSIGNMENT SYNTAX REFERENCE
+# -----------------------------------------------------------------------------
+assignment_syntax: |
+  Post effect assignments follow this syntax:
+  
+  BASIC ASSIGNMENT:
+  state.{variable} = {value}
+  
+  OPERATORS:
+  └── Assignment
+      └── =     Set variable to value
+  
+  VALUES:
+  ├── Boolean: True, False
+  ├── Numeric: 0, 1, 2, 3, etc.
+  ├── String: "value"
+  └── Expression: state.counter + 1
+  
+  EXAMPLES:
+  state.field_filled = True                              # Boolean assignment
+  state.card_completed = True                            # Completion flag
+  state.retry_count = 0                                  # Reset counter
+  state.attempts = state.attempts + 1                    # Increment
+  state.last_card = "collect_truck_num_v1"               # String assignment
+
+# -----------------------------------------------------------------------------
+# STATE UPDATE PATTERN
+# -----------------------------------------------------------------------------
+state_update_pattern: |
+  Post Effects implement the "State Update" pattern:
+  
+  ┌─────────────────────────────────────────────────────────┐
+  │                    Card Execution Flow                   │
+  │                                                          │
+  │   Pre-Condition         Card Logic          Post Effect  │
+  │   ─────────────         ──────────          ───────────  │
+  │   state.truck_number    [User enters        state.truck  │
+  │   _filled == False      truck number]       _number      │
+  │   → TRUE (can run)                          _filled      │
+  │                                             = True       │
+  │                                                          │
+  │   ┌───────────────────────────────────────────────────┐  │
+  │   │ State Before: truck_number_filled = False        │  │
+  │   │ State After:  truck_number_filled = True         │  │
+  │   └───────────────────────────────────────────────────┘  │
+  └─────────────────────────────────────────────────────────┘
+  
+  This pattern ensures:
+  • State is updated after successful card completion
+  • Pre-conditions become FALSE (prevents re-execution)
+  • Dependent cards can detect completion
+  • System state reflects actual progress
+
+# -----------------------------------------------------------------------------
+# COMPARISON: PRE-CONDITION VS POST EFFECT
+# -----------------------------------------------------------------------------
+comparison_pre_post: |
+  Pre-Condition vs Post Effect:
+  
+  ┌────────────────────────────────────────────────────────────────┐
+  │           Pre-Condition              Post Effect               │
+  │ ─────────────────────────────────────────────────────────────  │
+  │ TIMING:   Before card execution      After card completion     │
+  │ PURPOSE:  Gate/check condition       Update/mutate state       │
+  │ OPERATOR: == (comparison)            = (assignment)            │
+  │ RESULT:   Boolean (true/false)       State mutation            │
+  │ EXAMPLE:  state.filled == False      state.filled = True       │
+  │ ROLE:     Constraint                 Action                    │
+  └────────────────────────────────────────────────────────────────┘
+  
+  They work together:
+  1. Pre-Condition: state.truck_number_filled == False → TRUE (run card)
+  2. Card executes: [User enters truck number]
+  3. Post Effect: state.truck_number_filled = True (update state)
+  4. Next check: state.truck_number_filled == False → FALSE (don't re-run)

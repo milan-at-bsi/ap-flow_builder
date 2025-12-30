@@ -1,0 +1,308 @@
+# =============================================================================
+# AI CONTEXT: Policy Block
+# Workspace: Actions
+# =============================================================================
+
+block_name: "Policy"
+block_type: container
+workspace: actions
+
+# -----------------------------------------------------------------------------
+# CORE INTENT
+# -----------------------------------------------------------------------------
+intent: |
+  Groups card-level policies that control how the card runner manages the card.
+  Policies define operational constraints and behaviors such as timeouts,
+  retry limits, and other runtime management rules.
+
+description: |
+  The Policy block is a container within a Card that groups together all the
+  policy configurations that govern how the card runner should handle the card
+  during execution. These policies help control timing, error handling, and
+  other operational aspects.
+  
+  Key behaviors:
+  - Contains policy leaf blocks (Timeout, maxretries, etc.)
+  - Has no fields of its own - purely a grouping container
+  - Policies are used by the card runner to manage card execution
+  - One Policy block per Card is typical
+  
+  Common policies:
+  - Timeout: How long to wait before timing out
+  - MaxRetries: How many times to retry on failure
+  - RateLimit: Limits on how often the card can execute
+  - Other custom policies as needed
+
+# -----------------------------------------------------------------------------
+# SEMANTIC ROLE
+# -----------------------------------------------------------------------------
+semantic_role: grouping
+
+# -----------------------------------------------------------------------------
+# FIELD DEFINITIONS
+# -----------------------------------------------------------------------------
+fields: {}  # Policy has no fields - it only groups policy child blocks
+
+# -----------------------------------------------------------------------------
+# STRUCTURAL CONSTRAINTS
+# -----------------------------------------------------------------------------
+allowed_children:
+  - Timeout      # Timeout configuration
+  # Future policy types:
+  # - MaxRetries
+  # - RateLimit
+  # - Priority
+  # - etc.
+
+required_children:
+  min: 0
+  max: null
+  types: null  # No specific type required, but should have at least one policy
+
+allowed_parents:
+  - Card  # Policy can only exist inside Cards
+
+# -----------------------------------------------------------------------------
+# RESTRICTIONS & RULES
+# -----------------------------------------------------------------------------
+restrictions:
+  - "Policy blocks can ONLY exist as direct children of a Card"
+  - "Policy should only contain policy-related leaf blocks"
+  - "One Policy container per Card is recommended"
+  - "Policies define constraints, not business logic"
+
+# -----------------------------------------------------------------------------
+# RELATIONSHIPS
+# -----------------------------------------------------------------------------
+relationships:
+  requires:
+    - Card  # Policy must have a Card parent
+  
+  pairs_with:
+    - Timeout  # Most common policy child
+    # Future: MaxRetries, RateLimit, etc.
+  
+  typically_preceded_by:
+    - delivery  # Often comes after delivery in a Card
+  
+  typically_followed_by:
+    - Pre-Condition  # Often followed by Pre-Condition
+
+# -----------------------------------------------------------------------------
+# USAGE EXAMPLES
+# -----------------------------------------------------------------------------
+examples:
+  - name: "Simple Timeout Policy"
+    description: "Policy with just a timeout configuration"
+    yaml: |
+      Policy:
+        - Timeout:
+            - timeout_sec: "30"
+
+  - name: "Custom Timeout"
+    description: "Policy with a non-default timeout value"
+    yaml: |
+      Policy:
+        - Timeout:
+            - timeout_sec: "60"
+
+  - name: "Short Timeout for Quick Interactions"
+    description: "Policy for acknowledgement cards with short timeout"
+    yaml: |
+      Policy:
+        - Timeout:
+            - timeout_sec: "10"
+
+  - name: "Multiple Policies (Future)"
+    description: "Policy with multiple constraints (when maxretries is added)"
+    yaml: |
+      Policy:
+        - Timeout:
+            - timeout_sec: "30"
+        # Future: MaxRetries would be added here
+        # - MaxRetries:
+        #     - max_retries: "3"
+
+  - name: "In Card Context"
+    description: "How Policy fits inside a complete Card"
+    yaml: |
+      Card:
+        - card_id: collect_truck_num_v1
+        - State List:
+            - state:
+                - name: truck_number_filled
+            - state:
+                - name: collect_truck_num_v1_timeout
+        - delivery:
+            - intent:
+                - intent: collect
+            - interaction:
+                - interaction_type: input.text
+                - field:
+                    - field: truck_number
+                    - label: Truck Number
+                    - prompt: Enter truck number
+        - Policy:
+            - Timeout:
+                - timeout_sec: "32"
+        - Pre-Condition:
+            - pre_condition: state.truck_number_filled == False
+        - Post Effect:
+            - post_effect: state.truck_number_filled = True
+
+  - name: "In Full Action Context"
+    description: "Policy in a complete Action structure"
+    yaml: |
+      Action:
+        - action: fill_truck_number
+        - Card:
+            - card_id: collect_truck_num_v1
+            - delivery:
+                - intent:
+                    - intent: collect
+                - interaction:
+                    - interaction_type: input.text
+                    - field:
+                        - field: truck_number
+                        - label: Truck Number
+                        - prompt: Please enter your truck number
+            - Policy:
+                - Timeout:
+                    - timeout_sec: "30"
+            - Pre-Condition:
+                - pre_condition: state.truck_number_filled == False
+            - Post Effect:
+                - post_effect: state.truck_number_filled = True
+
+# -----------------------------------------------------------------------------
+# COMMON MISTAKES
+# -----------------------------------------------------------------------------
+common_mistakes:
+  - mistake: "Placing Policy outside of a Card"
+    correction: "Policy blocks must always be inside a Card"
+    example_wrong: |
+      Action:
+        - action: my_action
+        - Policy:  # Error: Not inside Card!
+            - Timeout:
+                - timeout_sec: "30"
+    example_correct: |
+      Action:
+        - action: my_action
+        - Card:
+            - card_id: my_card
+            - Policy:  # Correct: Inside Card
+                - Timeout:
+                    - timeout_sec: "30"
+
+  - mistake: "Putting non-policy blocks inside Policy"
+    correction: "Policy should only contain policy-related blocks"
+    example_wrong: |
+      Policy:
+        - Timeout:
+            - timeout_sec: "30"
+        - field:  # Error: field doesn't belong in Policy!
+            - field: truck_number
+    example_correct: |
+      Policy:
+        - Timeout:
+            - timeout_sec: "30"
+
+  - mistake: "Multiple Policy containers in one Card"
+    correction: "Use a single Policy container with multiple policy children"
+    example_wrong: |
+      Card:
+        - card_id: my_card
+        - Policy:
+            - Timeout:
+                - timeout_sec: "30"
+        - Policy:  # Error: Second Policy container!
+            - Timeout:
+                - timeout_sec: "60"
+    example_correct: |
+      Card:
+        - card_id: my_card
+        - Policy:
+            - Timeout:
+                - timeout_sec: "30"
+            # Add more policies here in the same container
+
+  - mistake: "Forgetting timeout for user-facing cards"
+    correction: "Cards that wait for user input should have a timeout"
+    example_wrong: |
+      Card:
+        - card_id: collect_data
+        - delivery: ...
+        # Missing Policy with Timeout!
+    example_correct: |
+      Card:
+        - card_id: collect_data
+        - delivery: ...
+        - Policy:
+            - Timeout:
+                - timeout_sec: "30"
+
+# -----------------------------------------------------------------------------
+# GENERATION HINTS
+# -----------------------------------------------------------------------------
+generation_hints:
+  use_when:
+    - "A Card needs timeout configuration"
+    - "A Card needs retry limits or other operational constraints"
+    - "The card runner needs instructions on how to manage the card"
+    - "User-facing interactions that could hang or fail"
+  
+  do_not_use_when:
+    - "There is no parent Card block"
+    - "No operational constraints are needed"
+  
+  keywords:
+    - "timeout"
+    - "retry"
+    - "limit"
+    - "policy"
+    - "wait"
+    - "seconds"
+    - "max"
+    - "constraint"
+
+# -----------------------------------------------------------------------------
+# POLICY TYPES
+# -----------------------------------------------------------------------------
+policy_types: |
+  Currently Available:
+  - Timeout: Sets how long (in seconds) to wait before timing out
+    - Field: timeout_sec (default: "30")
+    - Use case: Prevent indefinite waiting for user input
+  
+  Potential Future Policies:
+  - MaxRetries: Maximum number of retry attempts
+    - Use case: Limit how many times to retry on failure
+  
+  - RateLimit: Limit execution frequency
+    - Use case: Prevent rapid repeated executions
+  
+  - Priority: Execution priority level
+    - Use case: Order of execution when multiple cards are ready
+  
+  - Cooldown: Minimum time between executions
+    - Use case: Prevent spamming or rapid re-execution
+
+# -----------------------------------------------------------------------------
+# CARD RUNNER INTEGRATION
+# -----------------------------------------------------------------------------
+card_runner_integration: |
+  The card runner uses Policy configurations to:
+  
+  1. Timeout handling:
+     - Start a timer when card begins execution
+     - If timeout_sec is reached before completion, trigger timeout state
+     - Related state: {card_id}_timeout
+  
+  2. Future: Retry handling:
+     - Track retry count for the card
+     - If maxretries is exceeded, stop retrying
+     - Related state: {card_id}_maxretries
+  
+  Policies are operational constraints that don't affect business logic,
+  but control how the runtime manages card execution.

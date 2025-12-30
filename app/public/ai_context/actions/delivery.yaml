@@ -1,0 +1,310 @@
+# =============================================================================
+# AI CONTEXT: delivery Block
+# Workspace: Actions
+# =============================================================================
+
+block_name: "delivery"
+block_type: container
+workspace: actions
+
+# -----------------------------------------------------------------------------
+# CORE INTENT
+# -----------------------------------------------------------------------------
+intent: |
+  Groups related blocks used to construct an interaction with the user.
+  The delivery container organizes the intent (what to do) and interaction
+  (how to do it) blocks that define how a Card communicates with the user.
+
+description: |
+  The delivery block is a container within a Card that groups all the blocks
+  needed to define a user interaction. It separates the "what" (intent) from
+  the "how" (interaction), providing a clean structure for defining how
+  content is delivered to users.
+  
+  Key behaviors:
+  - Contains an `intent` block that defines the purpose (collect or acknowledge)
+  - Contains an `interaction` block that defines the UI mechanism
+  - Has no fields of its own - it's purely a grouping container
+  - One delivery per Card is typical
+  
+  Common delivery purposes:
+  - Collecting data from users (text input, selections)
+  - Sending acknowledgements or confirmations
+  - Displaying prompts or instructions
+
+# -----------------------------------------------------------------------------
+# SEMANTIC ROLE
+# -----------------------------------------------------------------------------
+semantic_role: grouping
+
+# -----------------------------------------------------------------------------
+# FIELD DEFINITIONS
+# -----------------------------------------------------------------------------
+fields: {}  # delivery has no fields - it only groups child blocks
+
+# -----------------------------------------------------------------------------
+# STRUCTURAL CONSTRAINTS
+# -----------------------------------------------------------------------------
+allowed_children:
+  - intent       # Defines what the delivery does (collect, acknowledge)
+  - interaction  # Defines how to interact with the user
+
+required_children:
+  min: 1
+  max: null
+  types:
+    - intent       # Should specify the intent
+    - interaction  # Should define the interaction mechanism
+
+allowed_parents:
+  - Card  # delivery can only exist inside Cards
+
+# -----------------------------------------------------------------------------
+# RESTRICTIONS & RULES
+# -----------------------------------------------------------------------------
+restrictions:
+  - "delivery blocks can ONLY exist as direct children of a Card"
+  - "delivery should contain both intent and interaction blocks"
+  - "One delivery per Card is typical"
+  - "The intent defines 'what' and interaction defines 'how'"
+
+# -----------------------------------------------------------------------------
+# RELATIONSHIPS
+# -----------------------------------------------------------------------------
+relationships:
+  requires:
+    - Card  # delivery must have a Card parent
+  
+  pairs_with:
+    - intent       # Always contains an intent
+    - interaction  # Always contains an interaction
+  
+  typically_preceded_by:
+    - State List  # Often comes after State List in a Card
+  
+  typically_followed_by:
+    - Policy        # Often followed by Policy
+    - Pre-Condition # Or directly by Pre-Condition
+
+# -----------------------------------------------------------------------------
+# USAGE EXAMPLES
+# -----------------------------------------------------------------------------
+examples:
+  - name: "Simple Field Collection"
+    description: "delivery for collecting a truck number"
+    yaml: |
+      delivery:
+        - intent:
+            - intent: collect
+        - interaction:
+            - interaction_type: input.text
+            - field:
+                - field: truck_number
+                - label: Truck Number
+                - prompt: Please enter your truck number
+
+  - name: "Complete Field Collection with Handlers"
+    description: "delivery with success and error handlers"
+    yaml: |
+      delivery:
+        - intent:
+            - intent: collect
+        - interaction:
+            - interaction_type: input.text
+            - field:
+                - field: truck_number
+                - label: Truck Number
+                - prompt: Please enter your TRUCK number
+            - on_success:
+                - on_success: "{ truck_number_filled: true }"
+            - on_error:
+                - on_error: "{ truck_number_filled: false }"
+
+  - name: "Acknowledgement Delivery"
+    description: "delivery for sending an acknowledgement to the user"
+    yaml: |
+      delivery:
+        - intent:
+            - intent: acknowledge
+        - interaction:
+            - interaction_type: acknowledge
+
+  - name: "Multiple Field Collection"
+    description: "delivery for collecting multiple related fields"
+    yaml: |
+      delivery:
+        - intent:
+            - intent: collect
+        - interaction:
+            - interaction_type: input.text
+            - field:
+                - field: driver_name
+                - label: Driver Name
+                - prompt: Enter driver's full name
+            - field:
+                - field: driver_license
+                - label: License Number
+                - prompt: Enter CDL number
+
+  - name: "In Card Context"
+    description: "How delivery fits inside a complete Card"
+    yaml: |
+      Card:
+        - card_id: collect_truck_num_v1
+        - State List:
+            - state:
+                - name: truck_number_filled
+        - delivery:
+            - intent:
+                - intent: collect
+            - interaction:
+                - interaction_type: input.text
+                - field:
+                    - field: truck_number
+                    - label: Truck Number
+                    - prompt: Enter truck number
+                - on_success:
+                    - on_success: "{ truck_number_filled: true }"
+                - on_error:
+                    - on_error: "{ truck_number_filled: false }"
+        - Policy:
+            - Timeout:
+                - timeout_sec: "30"
+        - Pre-Condition:
+            - pre_condition: state.truck_number_filled == False
+        - Post Effect:
+            - post_effect: state.truck_number_filled = True
+
+  - name: "In Full Action Context"
+    description: "delivery in a complete Action structure"
+    yaml: |
+      Action:
+        - action: fill_truck_number
+        - Card:
+            - card_id: collect_truck_num_v1
+            - delivery:
+                - intent:
+                    - intent: collect
+                - interaction:
+                    - interaction_type: input.text
+                    - field:
+                        - field: truck_number
+                        - label: Truck Number
+                        - prompt: Please enter your truck number
+            - Pre-Condition:
+                - pre_condition: state.truck_number_filled == False
+            - Post Effect:
+                - post_effect: state.truck_number_filled = True
+
+# -----------------------------------------------------------------------------
+# COMMON MISTAKES
+# -----------------------------------------------------------------------------
+common_mistakes:
+  - mistake: "Placing delivery outside of a Card"
+    correction: "delivery blocks must always be inside a Card"
+    example_wrong: |
+      Action:
+        - action: my_action
+        - delivery:  # Error: Not inside Card!
+            - intent:
+                - intent: collect
+    example_correct: |
+      Action:
+        - action: my_action
+        - Card:
+            - card_id: my_card
+            - delivery:  # Correct: Inside Card
+                - intent:
+                    - intent: collect
+
+  - mistake: "Missing intent block"
+    correction: "delivery should specify the intent"
+    example_wrong: |
+      delivery:
+        - interaction:  # Missing intent!
+            - interaction_type: input.text
+    example_correct: |
+      delivery:
+        - intent:
+            - intent: collect
+        - interaction:
+            - interaction_type: input.text
+
+  - mistake: "Missing interaction block"
+    correction: "delivery should specify how to interact"
+    example_wrong: |
+      delivery:
+        - intent:  # Missing interaction!
+            - intent: collect
+    example_correct: |
+      delivery:
+        - intent:
+            - intent: collect
+        - interaction:
+            - interaction_type: input.text
+            - field:
+                - field: data_field
+                - label: Label
+                - prompt: Prompt text
+
+  - mistake: "Adding fields directly to delivery"
+    correction: "Fields go inside the interaction block, not delivery"
+    example_wrong: |
+      delivery:
+        - intent:
+            - intent: collect
+        - field:  # Error: field should be inside interaction!
+            - field: truck_number
+    example_correct: |
+      delivery:
+        - intent:
+            - intent: collect
+        - interaction:
+            - interaction_type: input.text
+            - field:  # Correct: Inside interaction
+                - field: truck_number
+                - label: Truck Number
+                - prompt: Enter truck number
+
+# -----------------------------------------------------------------------------
+# GENERATION HINTS
+# -----------------------------------------------------------------------------
+generation_hints:
+  use_when:
+    - "A Card needs to interact with the user"
+    - "Collecting data from a driver/visitor"
+    - "Sending an acknowledgement or confirmation"
+    - "Displaying a prompt to the user"
+  
+  do_not_use_when:
+    - "There is no parent Card block"
+    - "The Card doesn't need user interaction"
+  
+  keywords:
+    - "collect"
+    - "prompt"
+    - "ask"
+    - "input"
+    - "acknowledge"
+    - "confirm"
+    - "enter"
+    - "display"
+
+# -----------------------------------------------------------------------------
+# BLOCK STRUCTURE DIAGRAM
+# -----------------------------------------------------------------------------
+block_structure: |
+  delivery (this block)
+    ├── intent                    # WHAT to do
+    │   └── intent: collect/acknowledge
+    │
+    └── interaction               # HOW to do it
+        ├── interaction_type: input.text/acknowledge
+        ├── field                 # The data to collect
+        │   ├── field: name
+        │   ├── label: display label
+        │   └── prompt: user prompt
+        ├── on_success            # Success handler
+        │   └── on_success: expression
+        └── on_error              # Error handler
+            └── on_error: expression

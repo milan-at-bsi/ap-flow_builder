@@ -1,0 +1,311 @@
+# =============================================================================
+# AI CONTEXT: license_plate Block
+# Workspace: Actions
+# =============================================================================
+
+block_name: "license_plate"
+block_type: leaf
+workspace: actions
+
+# -----------------------------------------------------------------------------
+# CORE INTENT
+# -----------------------------------------------------------------------------
+intent: |
+  Represents the license_plate state variable, a commonly used field in vehicle
+  identification flows for tracking whether the vehicle license plate number has
+  been collected and validated.
+
+description: |
+  The license_plate block is a specific instance of a state block that tracks
+  the vehicle license plate collection status. This data point is essential for
+  vehicle identification, security, and compliance in access control flows.
+  
+  Key behaviors:
+  - Declares license_plate_filled state variable initialized to False
+  - Used in Pre-Conditions List to check if license plate needs collection
+  - Updated in post_effects when license plate is successfully collected
+  - Often collected alongside truck_number for complete vehicle identification
+  
+  Related state variables:
+  - license_plate_filled: Boolean tracking if plate was collected
+  - license_plate_validated: Boolean tracking if format validated
+  - license_plate_timeout: Boolean tracking collection timeout
+  - license_plate_state: String tracking the state/jurisdiction
+
+# -----------------------------------------------------------------------------
+# SEMANTIC ROLE
+# -----------------------------------------------------------------------------
+semantic_role: data_collection
+
+# -----------------------------------------------------------------------------
+# FIELD DEFINITIONS
+# -----------------------------------------------------------------------------
+fields:
+  init:
+    intent: "Initializes the license_plate state variable with its starting value"
+    description: |
+      The init field contains the state variable declaration in format:
+      license_plate_filled: False
+      
+      This declares that the license plate has not yet been collected.
+      After successful collection, post_effects set this to True.
+    value_type: "state_initialization"
+    required: true
+    default_behavior: |
+      Should be initialized to False since license plate starts as uncollected.
+    examples:
+      - "license_plate_filled: False"
+      - "license_plate_validated: False"
+      - "license_plate_timeout: False"
+
+# -----------------------------------------------------------------------------
+# STRUCTURAL CONSTRAINTS
+# -----------------------------------------------------------------------------
+allowed_children: []  # Leaf block - no children
+
+required_children:
+  min: 0
+  max: 0
+  types: []
+
+allowed_parents:
+  - State List  # license_plate can only exist inside State List
+
+# -----------------------------------------------------------------------------
+# RESTRICTIONS & RULES
+# -----------------------------------------------------------------------------
+restrictions:
+  - "license_plate blocks can ONLY exist as direct children of State List"
+  - "Should always be initialized to False (uncollected state)"
+  - "Must be referenced in Pre-Conditions List or post_effects to be useful"
+  - "Use license_plate_filled for collection status, license_plate_validated for validation status"
+
+# -----------------------------------------------------------------------------
+# RELATIONSHIPS
+# -----------------------------------------------------------------------------
+relationships:
+  requires:
+    - State List  # Must have a State List parent
+  
+  pairs_with:
+    - Pre-Condition  # States are checked in pre-conditions
+    - Post Effect    # States are updated in post-effects
+    - field          # Often paired with a field block collecting the actual plate
+    - truck_number   # Often collected together with truck number
+  
+  typically_preceded_by:
+    - truck_number   # Usually collected after truck number
+  
+  typically_followed_by:
+    - trailer_number  # May be followed by trailer identification
+
+# -----------------------------------------------------------------------------
+# USAGE EXAMPLES
+# -----------------------------------------------------------------------------
+examples:
+  - name: "Basic license_plate State"
+    description: "Simple declaration of license_plate_filled state"
+    yaml: |
+      state:
+        - license_plate_filled: False
+
+  - name: "In State List"
+    description: "license_plate within a State List container"
+    yaml: |
+      State List:
+        - state:
+            - license_plate_filled: False
+
+  - name: "With Related States"
+    description: "license_plate with validation and state tracking"
+    yaml: |
+      State List:
+        - state:
+            - license_plate_filled: False
+        - state:
+            - license_plate_validated: False
+        - state:
+            - collect_license_plate_v1_timeout: False
+
+  - name: "Complete Card with license_plate"
+    description: "Card that collects license plate with state tracking"
+    yaml: |
+      Card:
+        - card_id: collect_license_plate_v1
+        - State List:
+            - state:
+                - license_plate_filled: False
+        - delivery:
+            - intent:
+                - intent: collect
+            - interaction:
+                - interaction_type: input.text
+                - field:
+                    - field: license_plate
+                    - label: License Plate
+                    - prompt: Please enter your vehicle license plate number
+        - Policy:
+            - Timeout:
+                - timeout_sec: "30"
+        - Pre-Conditions List:
+            - Pre-Condition:
+                - pre_condition: state.license_plate_filled == False
+        - post_effects:
+            - Post Effect:
+                - post_effect: state.license_plate_filled = True
+
+  - name: "With Truck Number Dependency"
+    description: "License plate collection after truck number"
+    yaml: |
+      Card:
+        - card_id: collect_license_plate_v1
+        - State List:
+            - state:
+                - truck_number_filled: False
+            - state:
+                - license_plate_filled: False
+        - Pre-Conditions List:
+            - Pre-Condition:
+                - pre_condition: state.truck_number_filled == True
+            - Pre-Condition:
+                - pre_condition: state.license_plate_filled == False
+        - post_effects:
+            - Post Effect:
+                - post_effect: state.license_plate_filled = True
+
+  - name: "Full Vehicle Identification Flow"
+    description: "Multiple cards for complete vehicle identification"
+    yaml: |
+      Action:
+        - action: collect_vehicle_id
+        - Card:
+            - card_id: collect_truck_num_v1
+            - State List:
+                - state:
+                    - truck_number_filled: False
+            - Pre-Conditions List:
+                - Pre-Condition:
+                    - pre_condition: state.truck_number_filled == False
+            - post_effects:
+                - Post Effect:
+                    - post_effect: state.truck_number_filled = True
+        - Card:
+            - card_id: collect_license_plate_v1
+            - State List:
+                - state:
+                    - license_plate_filled: False
+            - Pre-Conditions List:
+                - Pre-Condition:
+                    - pre_condition: state.truck_number_filled == True
+                - Pre-Condition:
+                    - pre_condition: state.license_plate_filled == False
+            - post_effects:
+                - Post Effect:
+                    - post_effect: state.license_plate_filled = True
+
+# -----------------------------------------------------------------------------
+# COMMON MISTAKES
+# -----------------------------------------------------------------------------
+common_mistakes:
+  - mistake: "Using 'license_plate' instead of 'license_plate_filled'"
+    correction: "State variables should indicate status, not the data itself"
+    example_wrong: |
+      state:
+        - license_plate: False  # Confusing - is this the plate or status?
+    example_correct: |
+      state:
+        - license_plate_filled: False  # Clear - tracks if plate was collected
+
+  - mistake: "Initializing to True"
+    correction: "State starts as False since data hasn't been collected yet"
+    example_wrong: |
+      state:
+        - license_plate_filled: True  # Wrong initial state
+    example_correct: |
+      state:
+        - license_plate_filled: False  # Correct - starts uncollected
+
+  - mistake: "Not including in post_effects"
+    correction: "If you check a state in Pre-Conditions List, update it in post_effects"
+    example_wrong: |
+      Card:
+        - Pre-Conditions List:
+            - Pre-Condition:
+                - pre_condition: state.license_plate_filled == False
+        # Missing post_effects to set license_plate_filled = True!
+    example_correct: |
+      Card:
+        - Pre-Conditions List:
+            - Pre-Condition:
+                - pre_condition: state.license_plate_filled == False
+        - post_effects:
+            - Post Effect:
+                - post_effect: state.license_plate_filled = True
+
+  - mistake: "Not validating license plate format"
+    correction: "Consider adding validation state if format checking is needed"
+    example_wrong: |
+      # Only tracking collection, not validation
+      state:
+        - license_plate_filled: False
+    example_correct: |
+      # Track both collection and validation
+      State List:
+        - state:
+            - license_plate_filled: False
+        - state:
+            - license_plate_validated: False
+
+# -----------------------------------------------------------------------------
+# GENERATION HINTS
+# -----------------------------------------------------------------------------
+generation_hints:
+  use_when:
+    - "Collecting vehicle license plate number"
+    - "Creating driver check-in flow"
+    - "Vehicle identification for access control"
+    - "Security and compliance requirements"
+    - "Camera-assisted plate recognition flows"
+  
+  do_not_use_when:
+    - "Flow doesn't involve vehicle identification"
+    - "Using automated ALPR (plate recognition) only"
+  
+  keywords:
+    - "license plate"
+    - "plate number"
+    - "vehicle plate"
+    - "registration"
+    - "tag number"
+    - "check-in"
+    - "security"
+    - "access control"
+
+# -----------------------------------------------------------------------------
+# DATA CONTEXT
+# -----------------------------------------------------------------------------
+data_context: |
+  The license_plate is typically:
+  - A government-issued vehicle registration identifier
+  - Displayed on front and/or rear of vehicles
+  - Used for security, compliance, and tracking
+  - May be captured manually or via ALPR cameras
+  
+  Common formats by region:
+  - US: Varies by state (e.g., "ABC 1234", "1ABC234")
+  - Canada: Province-specific (e.g., "ABCD 123")
+  - EU: Country code + numbers/letters
+  - Mexico: State code + alphanumeric
+  
+  Validation considerations:
+  - Format varies significantly by jurisdiction
+  - May need state/province selection for proper validation
+  - Special plates (government, diplomatic) may have different formats
+  
+  Related data points often collected together:
+  - truck_number → license_plate → trailer_number → driver_name
+  
+  Special cases:
+  - Temporary plates may have different formats
+  - Fleet vehicles may have consistent numbering patterns
+  - ALPR systems may pre-populate the field

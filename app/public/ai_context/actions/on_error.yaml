@@ -1,0 +1,265 @@
+# =============================================================================
+# AI CONTEXT: on_error Block
+# Workspace: Actions
+# =============================================================================
+
+block_name: "on_error"
+block_type: leaf
+workspace: actions
+
+# -----------------------------------------------------------------------------
+# CORE INTENT
+# -----------------------------------------------------------------------------
+intent: |
+  Defines what happens when an interaction fails or encounters an error.
+  Contains a JSON assignment expression that typically updates state variables
+  to indicate the failure of data collection.
+
+description: |
+  The on_error block is a leaf within interaction that specifies the state
+  updates to perform when the user interaction fails. It works as a pair
+  with on_success for complete interaction handling.
+  
+  Key behaviors:
+  - Fires when interaction fails or encounters an error
+  - Contains JSON assignment expression for state updates
+  - Typically sets field tracking states to false
+  - Updates happen at the interaction level (not card level)
+  - Works in tandem with on_success for complementary handling
+  
+  Common use cases:
+  - Mark fields as not filled on error
+  - Increment error or retry counters
+  - Set error flags for downstream handling
+
+# -----------------------------------------------------------------------------
+# SEMANTIC ROLE
+# -----------------------------------------------------------------------------
+semantic_role: action
+
+# -----------------------------------------------------------------------------
+# FIELD DEFINITIONS
+# -----------------------------------------------------------------------------
+fields:
+  on_error:
+    intent: "JSON expression defining state updates on error"
+    description: |
+      The on_error field contains a JSON assignment expression that
+      specifies which state variables to update when the interaction
+      fails. The format is typically:
+      "{ variable_name: value, ... }"
+    value_type: text
+    required: true
+    default_behavior: |
+      Defaults to "{ [field]_filled: false }" where [field] is replaced
+      with the actual field name.
+    examples:
+      - "{ truck_number_filled: false }"
+      - "{ driver_name_filled: false, input_error: true }"
+      - "{ validation_failed: true, retry_count: retry_count + 1 }"
+
+# -----------------------------------------------------------------------------
+# STRUCTURAL CONSTRAINTS
+# -----------------------------------------------------------------------------
+allowed_children: []  # Leaf block - no children
+
+required_children:
+  min: 0
+  max: 0
+  types: []
+
+allowed_parents:
+  - interaction  # on_error can only exist inside interaction
+
+# -----------------------------------------------------------------------------
+# RESTRICTIONS & RULES
+# -----------------------------------------------------------------------------
+restrictions:
+  - "on_error blocks can ONLY exist as direct children of interaction"
+  - "The value must be a valid JSON assignment expression"
+  - "State variables should be declared in the Card's State List"
+  - "Should work as a complement to on_success for complete handling"
+  - "One on_error per interaction is typical"
+
+# -----------------------------------------------------------------------------
+# RELATIONSHIPS
+# -----------------------------------------------------------------------------
+relationships:
+  requires:
+    - interaction  # on_error must have an interaction parent
+  
+  pairs_with:
+    - on_success  # Works as a complement to on_success
+    - field       # Usually related to field data collection
+  
+  typically_preceded_by:
+    - on_success  # Usually comes after on_success
+  
+  typically_followed_by: null  # Usually last in interaction
+
+# -----------------------------------------------------------------------------
+# USAGE EXAMPLES
+# -----------------------------------------------------------------------------
+examples:
+  - name: "Simple Field Not Filled"
+    description: "Mark a single field as not filled on error"
+    yaml: |
+      on_error:
+        - on_error: "{ truck_number_filled: false }"
+
+  - name: "Error with Flag"
+    description: "Set error flag and mark not filled"
+    yaml: |
+      on_error:
+        - on_error: "{ driver_name_filled: false, input_error: true }"
+
+  - name: "Increment Retry Counter"
+    description: "Track retry attempts on error"
+    yaml: |
+      on_error:
+        - on_error: "{ validation_failed: true, retry_count: retry_count + 1 }"
+
+  - name: "In Interaction Context"
+    description: "How on_error fits inside interaction with on_success"
+    yaml: |
+      interaction:
+        - interaction_type: input.text
+        - field:
+            - field: truck_number
+            - label: Truck Number
+            - prompt: Please enter your truck number
+        - on_success:
+            - on_success: "{ truck_number_filled: true }"
+        - on_error:
+            - on_error: "{ truck_number_filled: false }"
+
+  - name: "In Full Delivery Context"
+    description: "on_error in complete delivery structure"
+    yaml: |
+      delivery:
+        - intent:
+            - intent: collect
+        - interaction:
+            - interaction_type: input.text
+            - field:
+                - field: truck_number
+                - label: Truck Number
+                - prompt: Please enter your TRUCK number
+            - on_success:
+                - on_success: "{ truck_number_filled: true }"
+            - on_error:
+                - on_error: "{ truck_number_filled: false }"
+
+# -----------------------------------------------------------------------------
+# COMMON MISTAKES
+# -----------------------------------------------------------------------------
+common_mistakes:
+  - mistake: "Placing on_error outside of interaction"
+    correction: "on_error blocks must always be inside interaction"
+    example_wrong: |
+      delivery:
+        - intent:
+            - intent: collect
+        - on_error:  # Error: Not inside interaction!
+            - on_error: "{ filled: false }"
+    example_correct: |
+      delivery:
+        - intent:
+            - intent: collect
+        - interaction:
+            - interaction_type: input.text
+            - field: ...
+            - on_error:  # Correct: Inside interaction
+                - on_error: "{ filled: false }"
+
+  - mistake: "Invalid JSON format"
+    correction: "Value must be valid JSON assignment expression"
+    example_wrong: |
+      on_error:
+        - on_error: truck_number_filled = false  # Error: Not JSON format!
+    example_correct: |
+      on_error:
+        - on_error: "{ truck_number_filled: false }"  # Correct: JSON format
+
+  - mistake: "Missing on_success counterpart"
+    correction: "on_error should have a matching on_success for complete handling"
+    example_wrong: |
+      interaction:
+        - field: ...
+        - on_error:
+            - on_error: "{ filled: false }"
+        # Missing on_success!
+    example_correct: |
+      interaction:
+        - field: ...
+        - on_success:
+            - on_success: "{ filled: true }"
+        - on_error:
+            - on_error: "{ filled: false }"
+
+  - mistake: "Inconsistent state variables"
+    correction: "on_success and on_error should update the same state variables"
+    example_wrong: |
+      interaction:
+        - on_success:
+            - on_success: "{ truck_number_filled: true }"
+        - on_error:
+            - on_error: "{ input_failed: true }"  # Different variable!
+    example_correct: |
+      interaction:
+        - on_success:
+            - on_success: "{ truck_number_filled: true }"
+        - on_error:
+            - on_error: "{ truck_number_filled: false }"  # Same variable
+
+# -----------------------------------------------------------------------------
+# GENERATION HINTS
+# -----------------------------------------------------------------------------
+generation_hints:
+  use_when:
+    - "Interaction needs to handle error state"
+    - "Tracking whether data collection failed"
+    - "Need to increment retry counters"
+    - "Setting error flags for downstream handling"
+  
+  do_not_use_when:
+    - "There is no parent interaction block"
+    - "No state updates needed on error"
+  
+  keywords:
+    - "error"
+    - "fail"
+    - "failed"
+    - "false"
+    - "invalid"
+    - "retry"
+
+# -----------------------------------------------------------------------------
+# ON_SUCCESS AND ON_ERROR PAIRING
+# -----------------------------------------------------------------------------
+success_error_pairing: |
+  on_success and on_error should work as a complementary pair:
+  
+  ┌─────────────────────────────────────────────────────────────────┐
+  │                       interaction                                │
+  │                                                                  │
+  │                    User Interaction                              │
+  │                          │                                       │
+  │              ┌───────────┴───────────┐                          │
+  │              ▼                       ▼                          │
+  │        SUCCESS                    ERROR                         │
+  │              │                       │                          │
+  │    ┌─────────┴──────────┐  ┌────────┴───────────┐              │
+  │    │    on_success      │  │     on_error       │              │
+  │    │                    │  │                    │              │
+  │    │ { field_filled:    │  │ { field_filled:    │              │
+  │    │   true }           │  │   false }          │              │
+  │    └────────────────────┘  └────────────────────┘              │
+  │                                                                  │
+  └─────────────────────────────────────────────────────────────────┘
+  
+  Best practices:
+  • Update the same state variable in both handlers
+  • on_success sets to true/success state
+  • on_error sets to false/error state
+  • Keep them consistent for predictable behavior

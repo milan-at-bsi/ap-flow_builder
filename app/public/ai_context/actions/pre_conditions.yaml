@@ -1,0 +1,310 @@
+# =============================================================================
+# AI CONTEXT: Pre-Conditions List Block
+# Workspace: Actions
+# =============================================================================
+
+block_name: "Pre-Conditions List"
+block_type: container
+workspace: actions
+
+# -----------------------------------------------------------------------------
+# CORE INTENT
+# -----------------------------------------------------------------------------
+intent: |
+  Groups the list of Pre-Condition blocks that ALL must evaluate to true
+  for the card runner to invoke the card. This provides a gate that ensures
+  the card only executes when the system is in the expected state.
+
+description: |
+  The Pre-Conditions List block is a container within a Card that holds all the
+  Pre-Condition expressions that must be satisfied before the card can execute.
+  The card runner evaluates all pre-conditions, and only if ALL return true
+  will the card be invoked.
+  
+  Key behaviors:
+  - Contains `Pre-Condition` leaf blocks
+  - ALL conditions must evaluate to true (AND logic)
+  - Card runner evaluates before invoking the card
+  - If ANY pre-condition is false, the card is NOT invoked
+  - Typically checks state variables from State List
+  
+  Common use cases:
+  - Ensure data hasn't already been collected
+  - Check required prerequisites are met
+  - Validate system state before proceeding
+
+# -----------------------------------------------------------------------------
+# SEMANTIC ROLE
+# -----------------------------------------------------------------------------
+semantic_role: constraint
+
+# -----------------------------------------------------------------------------
+# FIELD DEFINITIONS
+# -----------------------------------------------------------------------------
+fields: {}  # Pre-Conditions List has no fields - it only groups Pre-Condition children
+
+# -----------------------------------------------------------------------------
+# STRUCTURAL CONSTRAINTS
+# -----------------------------------------------------------------------------
+allowed_children:
+  - Pre-Condition  # Pre-condition expression leaves
+
+required_children:
+  min: 1
+  max: null
+  types:
+    - Pre-Condition  # Should have at least one pre-condition
+
+allowed_parents:
+  - Card  # Pre-Conditions List can only exist inside Cards
+
+# -----------------------------------------------------------------------------
+# RESTRICTIONS & RULES
+# -----------------------------------------------------------------------------
+restrictions:
+  - "Pre-Conditions List blocks can ONLY exist as direct children of a Card"
+  - "Pre-Conditions List should only contain Pre-Condition blocks"
+  - "All Pre-Conditions must evaluate to true for card invocation"
+  - "Pre-conditions should reference states declared in the State List"
+  - "One Pre-Conditions List container per Card is typical"
+
+# -----------------------------------------------------------------------------
+# RELATIONSHIPS
+# -----------------------------------------------------------------------------
+relationships:
+  requires:
+    - Card        # Pre-Conditions List must have a Card parent
+    - State List  # Pre-conditions reference states from State List
+  
+  pairs_with:
+    - Pre-Condition  # Contains these leaf blocks
+    - post_effects   # Often paired with post_effects for state transitions
+  
+  typically_preceded_by:
+    - Policy    # Often comes after Policy in a Card
+    - delivery  # Or after delivery if no Policy
+  
+  typically_followed_by:
+    - post_effects  # Often followed by post_effects
+
+# -----------------------------------------------------------------------------
+# USAGE EXAMPLES
+# -----------------------------------------------------------------------------
+examples:
+  - name: "Single Pre-Condition"
+    description: "Check if field hasn't been filled yet"
+    yaml: |
+      Pre-Conditions List:
+        - Pre-Condition:
+            - pre_condition: state.truck_number_filled == False
+
+  - name: "Multiple Pre-Conditions (All Must Be True)"
+    description: "Multiple conditions that ALL must pass"
+    yaml: |
+      Pre-Conditions List:
+        - Pre-Condition:
+            - pre_condition: state.truck_number_filled == False
+        - Pre-Condition:
+            - pre_condition: state.driver_verified == True
+        - Pre-Condition:
+            - pre_condition: state.session_active == True
+
+  - name: "Check Previous Step Complete"
+    description: "Ensure previous step is done before this card runs"
+    yaml: |
+      Pre-Conditions List:
+        - Pre-Condition:
+            - pre_condition: state.vehicle_type_filled == True
+        - Pre-Condition:
+            - pre_condition: state.trailer_number_filled == False
+
+  - name: "Timeout-Related Pre-Condition"
+    description: "Check card hasn't timed out"
+    yaml: |
+      Pre-Conditions List:
+        - Pre-Condition:
+            - pre_condition: state.collect_truck_num_v1_timeout == False
+
+  - name: "In Card Context"
+    description: "How Pre-Conditions List fits inside a complete Card"
+    yaml: |
+      Card:
+        - card_id: collect_truck_num_v1
+        - State List:
+            - state:
+                - name: truck_number_filled
+        - delivery:
+            - intent:
+                - intent: collect
+            - interaction:
+                - interaction_type: input.text
+                - field:
+                    - field: truck_number
+                    - label: Truck Number
+                    - prompt: Enter truck number
+        - Policy:
+            - Timeout:
+                - timeout_sec: "30"
+        - Pre-Conditions List:
+            - Pre-Condition:
+                - pre_condition: state.truck_number_filled == False
+        - post_effects:
+            - Post Effect:
+                - post_effect: state.truck_number_filled = True
+
+  - name: "Complex Multi-State Pre-Conditions"
+    description: "Card that requires multiple prerequisite states"
+    yaml: |
+      Card:
+        - card_id: verify_credentials_v1
+        - Pre-Conditions List:
+            - Pre-Condition:
+                - pre_condition: state.truck_number_filled == True
+            - Pre-Condition:
+                - pre_condition: state.trailer_number_filled == True
+            - Pre-Condition:
+                - pre_condition: state.credentials_verified == False
+            - Pre-Condition:
+                - pre_condition: state.verify_credentials_v1_maxretries < 3
+
+# -----------------------------------------------------------------------------
+# COMMON MISTAKES
+# -----------------------------------------------------------------------------
+common_mistakes:
+  - mistake: "Placing Pre-Conditions List outside of a Card"
+    correction: "Pre-Conditions List blocks must always be inside a Card"
+    example_wrong: |
+      Action:
+        - action: my_action
+        - Pre-Conditions List:  # Error: Not inside Card!
+            - Pre-Condition:
+                - pre_condition: state.filled == False
+    example_correct: |
+      Action:
+        - action: my_action
+        - Card:
+            - card_id: my_card
+            - Pre-Conditions List:  # Correct: Inside Card
+                - Pre-Condition:
+                    - pre_condition: state.filled == False
+
+  - mistake: "Referencing undeclared state variables"
+    correction: "All states in pre-conditions should be declared in State List"
+    example_wrong: |
+      Card:
+        - card_id: my_card
+        - State List:
+            - state:
+                - name: truck_number_filled
+        - Pre-Conditions List:
+            - Pre-Condition:
+                - pre_condition: state.driver_verified == True  # Error: Not declared!
+    example_correct: |
+      Card:
+        - card_id: my_card
+        - State List:
+            - state:
+                - name: truck_number_filled
+            - state:
+                - name: driver_verified  # Now declared
+        - Pre-Conditions List:
+            - Pre-Condition:
+                - pre_condition: state.driver_verified == True
+
+  - mistake: "Expecting OR logic between pre-conditions"
+    correction: "All pre-conditions use AND logic - ALL must be true"
+    example_wrong: |
+      # Thinking: Card runs if EITHER condition is true
+      Pre-Conditions List:
+        - Pre-Condition:
+            - pre_condition: state.option_a == True
+        - Pre-Condition:
+            - pre_condition: state.option_b == True
+      # Reality: Card runs only if BOTH are true!
+    example_correct: |
+      # If OR logic needed, combine in single expression:
+      Pre-Conditions List:
+        - Pre-Condition:
+            - pre_condition: state.option_a == True OR state.option_b == True
+
+  - mistake: "Empty Pre-Conditions List container"
+    correction: "Pre-Conditions List should have at least one Pre-Condition"
+    example_wrong: |
+      Pre-Conditions List:
+        # Empty - no conditions!
+    example_correct: |
+      Pre-Conditions List:
+        - Pre-Condition:
+            - pre_condition: state.ready == True
+
+# -----------------------------------------------------------------------------
+# GENERATION HINTS
+# -----------------------------------------------------------------------------
+generation_hints:
+  use_when:
+    - "Card needs to check state before executing"
+    - "Card should only run when certain conditions are met"
+    - "Preventing card from running if data already collected"
+    - "Ensuring prerequisites are satisfied"
+  
+  do_not_use_when:
+    - "There is no parent Card block"
+    - "Card should always run regardless of state"
+  
+  keywords:
+    - "condition"
+    - "check"
+    - "before"
+    - "prerequisite"
+    - "require"
+    - "if"
+    - "only when"
+    - "not already"
+
+# -----------------------------------------------------------------------------
+# EVALUATION LOGIC
+# -----------------------------------------------------------------------------
+evaluation_logic: |
+  The card runner evaluates Pre-Conditions List as follows:
+  
+  1. Before card invocation, iterate through all Pre-Condition children
+  2. Evaluate each Pre-Condition expression against current system state
+  3. Apply AND logic to all results:
+  
+     result = Pre-Condition_1 AND Pre-Condition_2 AND ... AND Pre-Condition_n
+  
+  4. Decision:
+     - If result == TRUE: Card is invoked
+     - If result == FALSE: Card is NOT invoked (skipped)
+  
+  Example evaluation:
+  
+  Pre-Conditions List:
+    - Pre-Condition: state.truck_number_filled == False  # TRUE
+    - Pre-Condition: state.session_active == True        # TRUE
+    - Pre-Condition: state.driver_verified == True       # FALSE
+  
+  Result: TRUE AND TRUE AND FALSE = FALSE → Card NOT invoked
+
+# -----------------------------------------------------------------------------
+# STATE RELATIONSHIP
+# -----------------------------------------------------------------------------
+state_relationship: |
+  Pre-Conditions List and post_effects form a state transition pair:
+  
+  ┌─────────────────────────────────────────────────────────────────┐
+  │                      Card Execution                              │
+  │                                                                  │
+  │   Pre-Conditions List              Card Logic           post_effects  │
+  │   ─────────────────       ───────────────       ───────────────  │
+  │   state.field_filled       [delivery,          state.field_filled│
+  │   == False                  interaction]        = True           │
+  │                                                                  │
+  │        Gate                   Execute               Update       │
+  │   (must pass to run)     (if gate passes)     (after execution)  │
+  └─────────────────────────────────────────────────────────────────┘
+  
+  This ensures:
+  - Card only runs when state allows (Pre-Conditions List)
+  - State is updated after card completes (post_effects)
+  - Prevents duplicate execution (state changed after first run)

@@ -1,0 +1,482 @@
+# =============================================================================
+# AI CONTEXT: field Block
+# Workspace: Actions
+# =============================================================================
+
+block_name: "field"
+block_type: leaf
+workspace: actions
+
+# -----------------------------------------------------------------------------
+# CORE INTENT
+# -----------------------------------------------------------------------------
+intent: |
+  Defines a data field to be collected in an interaction. Provides both
+  a machine identifier and human-readable elements (label, prompt) that
+  enable surface-adaptive rendering across mobile apps, kiosks, and voice.
+
+description: |
+  The field block is a leaf within interaction that defines a single piece
+  of data to collect from the user. It includes both a programmatic identifier
+  and user-facing text that can be adapted to different surfaces.
+  
+  Key behaviors:
+  - `field` provides the machine identifier (snake_case)
+  - `label` provides human-readable text for display
+  - `prompt` provides adaptive instruction text for the user
+  - Same definition renders differently on different surfaces:
+    - Mobile web app: Input box with label above
+    - Kiosk: Large touch keyboard with prompt displayed
+    - Voice assistant: Spoken prompt requesting input
+  
+  Surface-agnostic design:
+  - Definition focuses on WHAT to collect, not HOW to render
+  - Each surface interprets and renders appropriately
+  - Enables multi-channel deployment without rewriting definitions
+
+# -----------------------------------------------------------------------------
+# SEMANTIC ROLE
+# -----------------------------------------------------------------------------
+semantic_role: data_collection
+
+# -----------------------------------------------------------------------------
+# FIELD DEFINITIONS
+# -----------------------------------------------------------------------------
+fields:
+  field:
+    intent: "The machine identifier for the data field"
+    description: |
+      The field value is the programmatic name/identifier for the data being
+      collected. This identifier is used:
+      - As the key when storing collected data
+      - When referencing the field in state variables (e.g., state.{field}_filled)
+      - In on_success/on_error handlers
+      
+      Naming conventions:
+      - Use snake_case (lowercase with underscores)
+      - Be descriptive but concise
+      - Match related state variable names
+    value_type: text
+    required: true
+    default_behavior: |
+      No default - must be specified explicitly.
+    examples:
+      - "truck_number"
+      - "trailer_number"
+      - "driver_name"
+      - "driver_phone"
+      - "license_plate"
+      - "appointment_id"
+
+  label:
+    intent: "Human-readable label for display"
+    description: |
+      The label is a proper language (English) text that is displayed to
+      identify the field to the user. It appears:
+      - As the field label in mobile/web forms
+      - As the header text on kiosk screens
+      - May be spoken as context in voice interfaces
+      
+      Formatting:
+      - Use proper case (capitalize first letter of each word)
+      - Keep concise but clear
+      - Should match common user expectations
+    value_type: text
+    required: true
+    default_behavior: |
+      No default - must be specified explicitly.
+    examples:
+      - "Truck Number"
+      - "Trailer Number"
+      - "Driver Name"
+      - "Phone Number"
+      - "License Plate"
+      - "Appointment ID"
+
+  prompt:
+    intent: "Adaptive instruction text for the user"
+    description: |
+      The prompt is instruction text that guides the user on what to enter.
+      It is designed to be surface-adaptive:
+      - Mobile/Web: May appear as placeholder text or instruction
+      - Kiosk: Displayed prominently to guide touch input
+      - Voice: Spoken as the request to the user
+      
+      Formatting:
+      - Write as a clear instruction or request
+      - Can be a full sentence for voice compatibility
+      - May emphasize key words (e.g., "Enter your TRUCK number")
+    value_type: text
+    required: true
+    default_behavior: |
+      No default - must be specified explicitly.
+    examples:
+      - "Please enter your TRUCK number"
+      - "Enter your trailer number"
+      - "What is your full name?"
+      - "Enter your contact phone number"
+      - "Scan or enter the license plate"
+
+# -----------------------------------------------------------------------------
+# STRUCTURAL CONSTRAINTS
+# -----------------------------------------------------------------------------
+allowed_children: []  # Leaf block - no children
+
+required_children:
+  min: 0
+  max: 0
+  types: []
+
+allowed_parents:
+  - interaction  # field can only exist inside interaction
+
+# -----------------------------------------------------------------------------
+# RESTRICTIONS & RULES
+# -----------------------------------------------------------------------------
+restrictions:
+  - "field blocks can ONLY exist as direct children of interaction"
+  - "The field identifier should use snake_case (lowercase with underscores)"
+  - "field, label, and prompt are all required"
+  - "Keep definitions semantic, not implementation-specific"
+  - "The field identifier should match related state variable naming"
+  - "Multiple field blocks can exist in one interaction for multi-field forms"
+
+# -----------------------------------------------------------------------------
+# RELATIONSHIPS
+# -----------------------------------------------------------------------------
+relationships:
+  requires:
+    - interaction  # field must have an interaction parent
+  
+  pairs_with:
+    - on_success  # Success handler often references field state
+    - on_error    # Error handler often references field state
+    - state       # Field identifier used in state variable names
+  
+  typically_preceded_by:
+    - interaction_type  # interaction_type comes before field
+  
+  typically_followed_by:
+    - on_success  # Success handler often follows field(s)
+    - on_error    # Or another field for multi-field interactions
+
+# -----------------------------------------------------------------------------
+# USAGE EXAMPLES
+# -----------------------------------------------------------------------------
+examples:
+  - name: "Basic Field Definition"
+    description: "Simple field for truck number collection"
+    yaml: |
+      field:
+        - field: truck_number
+        - label: Truck Number
+        - prompt: Please enter your TRUCK number
+
+  - name: "Trailer Number Field"
+    description: "Field for trailer number collection"
+    yaml: |
+      field:
+        - field: trailer_number
+        - label: Trailer Number
+        - prompt: Enter your trailer number
+
+  - name: "Driver Information Fields"
+    description: "Fields for collecting driver details"
+    yaml: |
+      field:
+        - field: driver_name
+        - label: Driver Name
+        - prompt: What is your full name?
+
+  - name: "Phone Number Field"
+    description: "Field for contact information"
+    yaml: |
+      field:
+        - field: driver_phone
+        - label: Phone Number
+        - prompt: Enter your contact phone number
+
+  - name: "Single Field in Interaction"
+    description: "How field fits inside interaction"
+    yaml: |
+      interaction:
+        - interaction_type: input.text
+        - field:
+            - field: truck_number
+            - label: Truck Number
+            - prompt: Please enter your TRUCK number
+        - on_success:
+            - on_success: "{ truck_number_filled: true }"
+        - on_error:
+            - on_error: "{ truck_number_filled: false }"
+
+  - name: "Multiple Fields in Interaction"
+    description: "Collecting multiple related fields in one interaction"
+    yaml: |
+      interaction:
+        - interaction_type: input.text
+        - field:
+            - field: truck_number
+            - label: Truck Number
+            - prompt: Enter your truck number
+        - field:
+            - field: trailer_number
+            - label: Trailer Number
+            - prompt: Enter your trailer number
+        - on_success:
+            - on_success: "{ vehicle_info_filled: true }"
+
+  - name: "In Full Card Context"
+    description: "Field in complete Card structure"
+    yaml: |
+      Card:
+        - card_id: collect_truck_num_v1
+        - State List:
+            - state:
+                - name: truck_number_filled
+        - delivery:
+            - intent:
+                - intent: collect
+            - interaction:
+                - interaction_type: input.text
+                - field:
+                    - field: truck_number
+                    - label: Truck Number
+                    - prompt: Please enter your TRUCK number
+                - on_success:
+                    - on_success: "{ truck_number_filled: true }"
+                - on_error:
+                    - on_error: "{ truck_number_filled: false }"
+        - Policy:
+            - Timeout:
+                - timeout_sec: "30"
+        - Pre-Conditions List:
+            - Pre-Condition:
+                - pre_condition: state.truck_number_filled == False
+        - post_effects:
+            - Post Effect:
+                - post_effect: state.truck_number_filled = True
+
+  - name: "Field with Emphasis in Prompt"
+    description: "Using emphasis to highlight key terms"
+    yaml: |
+      field:
+        - field: appointment_id
+        - label: Appointment ID
+        - prompt: Enter your APPOINTMENT ID from your confirmation email
+
+# -----------------------------------------------------------------------------
+# COMMON MISTAKES
+# -----------------------------------------------------------------------------
+common_mistakes:
+  - mistake: "Placing field outside of interaction"
+    correction: "field blocks must always be inside interaction"
+    example_wrong: |
+      delivery:
+        - intent:
+            - intent: collect
+        - field:  # Error: Not inside interaction!
+            - field: truck_number
+            - label: Truck Number
+            - prompt: Enter truck number
+    example_correct: |
+      delivery:
+        - intent:
+            - intent: collect
+        - interaction:
+            - interaction_type: input.text
+            - field:  # Correct: Inside interaction
+                - field: truck_number
+                - label: Truck Number
+                - prompt: Enter truck number
+
+  - mistake: "Using spaces or camelCase in field identifier"
+    correction: "Use snake_case for field identifier"
+    example_wrong: |
+      field:
+        - field: truckNumber  # Error: camelCase!
+        - label: Truck Number
+        - prompt: Enter truck number
+    example_correct: |
+      field:
+        - field: truck_number  # Correct: snake_case
+        - label: Truck Number
+        - prompt: Enter truck number
+
+  - mistake: "Missing required field properties"
+    correction: "field, label, and prompt are all required"
+    example_wrong: |
+      field:
+        - field: truck_number
+        - label: Truck Number
+        # Missing prompt!
+    example_correct: |
+      field:
+        - field: truck_number
+        - label: Truck Number
+        - prompt: Enter your truck number  # All three present
+
+  - mistake: "Mismatched field and state variable naming"
+    correction: "Field identifier should match related state variables"
+    example_wrong: |
+      # State uses truck_number_filled
+      State List:
+        - state:
+            - name: truck_number_filled
+      # But field uses different name
+      field:
+        - field: truckNum  # Doesn't match state naming pattern!
+        - label: Truck Number
+        - prompt: Enter truck number
+    example_correct: |
+      # Consistent naming
+      State List:
+        - state:
+            - name: truck_number_filled
+      field:
+        - field: truck_number  # Matches state.truck_number_filled pattern
+        - label: Truck Number
+        - prompt: Enter truck number
+
+  - mistake: "Adding UI-specific details"
+    correction: "Keep definitions semantic, not implementation-specific"
+    example_wrong: |
+      field:
+        - field: truck_number
+        - label: Truck Number
+        - prompt: Enter truck number
+        - input_type: number  # Error: UI-specific!
+        - max_length: 10      # Error: Implementation detail!
+    example_correct: |
+      field:
+        - field: truck_number
+        - label: Truck Number
+        - prompt: Enter your truck number
+        # Surface interprets and applies appropriate UI
+
+# -----------------------------------------------------------------------------
+# GENERATION HINTS
+# -----------------------------------------------------------------------------
+generation_hints:
+  use_when:
+    - "Defining data to collect from users"
+    - "Need an input field for text entry"
+    - "User mentions collecting truck number, trailer number, name, etc."
+    - "Creating multi-field forms within a single interaction"
+  
+  do_not_use_when:
+    - "There is no parent interaction block"
+    - "interaction_type is 'acknowledge' (no data entry)"
+    - "The card doesn't need to collect specific data"
+  
+  keywords:
+    - "field"
+    - "input"
+    - "enter"
+    - "collect"
+    - "number"
+    - "name"
+    - "truck"
+    - "trailer"
+    - "driver"
+    - "phone"
+    - "text box"
+    - "form"
+
+# -----------------------------------------------------------------------------
+# SURFACE RENDERING
+# -----------------------------------------------------------------------------
+surface_rendering: |
+  The field block provides WHAT to collect, each surface decides HOW to render:
+  
+  ┌─────────────────────────────────────────────────────────────────┐
+  │                      field Definition                           │
+  │  field: truck_number                                            │
+  │  label: Truck Number                                            │
+  │  prompt: Please enter your TRUCK number                         │
+  └─────────────────────────────────────────────────────────────────┘
+                               │
+           ┌───────────────────┼───────────────────┐
+           ▼                   ▼                   ▼
+    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+    │ Mobile Web  │    │   Kiosk     │    │   Voice     │
+    │             │    │             │    │             │
+    │ ┌─────────┐ │    │ ┌─────────┐ │    │ "Please     │
+    │ │Truck    │ │    │ │TRUCK    │ │    │ enter your  │
+    │ │Number   │ │    │ │NUMBER   │ │    │ truck       │
+    │ ├─────────┤ │    │ ├─────────┤ │    │ number"     │
+    │ │[      ] │ │    │ │[_______]│ │    │             │
+    │ └─────────┘ │    │ │KEYBOARD │ │    │ [Listening] │
+    │  (label +   │    │ └─────────┘ │    │             │
+    │   input)    │    │ (prompt +   │    │ (prompt as  │
+    │             │    │  keyboard)  │    │  speech)    │
+    └─────────────┘    └─────────────┘    └─────────────┘
+  
+  Same semantic definition → Different UI implementations
+
+# -----------------------------------------------------------------------------
+# NAMING CONVENTIONS
+# -----------------------------------------------------------------------------
+naming_conventions: |
+  Field identifiers and related naming patterns:
+  
+  FIELD IDENTIFIER (snake_case):
+  ├── truck_number
+  ├── trailer_number
+  ├── driver_name
+  ├── driver_phone
+  ├── license_plate
+  └── appointment_id
+  
+  LABEL (Proper Case):
+  ├── Truck Number
+  ├── Trailer Number
+  ├── Driver Name
+  ├── Phone Number
+  ├── License Plate
+  └── Appointment ID
+  
+  PROMPT (Instruction sentence):
+  ├── Please enter your TRUCK number
+  ├── Enter your trailer number
+  ├── What is your full name?
+  ├── Enter your contact phone number
+  ├── Scan or enter the license plate
+  └── Enter your APPOINTMENT ID
+  
+  RELATED STATE VARIABLES:
+  field: truck_number
+  └── state: truck_number_filled
+  └── state: truck_number_validated
+  └── state: truck_number_error
+
+# -----------------------------------------------------------------------------
+# MULTI-FIELD INTERACTIONS
+# -----------------------------------------------------------------------------
+multi_field_interactions: |
+  Multiple field blocks can be used to collect related data together:
+  
+  ┌─────────────────────────────────────────────────────────────────┐
+  │                    interaction                                   │
+  │  interaction_type: input.text                                   │
+  │                                                                  │
+  │  ┌─────────────────────────────────────────────────────────┐    │
+  │  │ field: truck_number                                     │    │
+  │  │ label: Truck Number                                     │    │
+  │  │ prompt: Enter your truck number                         │    │
+  │  └─────────────────────────────────────────────────────────┘    │
+  │                                                                  │
+  │  ┌─────────────────────────────────────────────────────────┐    │
+  │  │ field: trailer_number                                   │    │
+  │  │ label: Trailer Number                                   │    │
+  │  │ prompt: Enter your trailer number                       │    │
+  │  └─────────────────────────────────────────────────────────┘    │
+  │                                                                  │
+  │  on_success: { vehicle_info_filled: true }                      │
+  │  on_error: { vehicle_info_filled: false }                       │
+  └─────────────────────────────────────────────────────────────────┘
+  
+  Use cases for multi-field:
+  • Collecting truck AND trailer number together
+  • Driver name AND phone number
+  • Related information that users expect to enter at once

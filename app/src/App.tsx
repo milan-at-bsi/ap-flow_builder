@@ -6,14 +6,15 @@ import { parse as parseYaml } from 'yaml'
 
 import { ContainerBlock } from './blocks/ContainerBlock'
 import { LeafBlock } from './blocks/LeafBlock'
+import { AIChatTab } from './components/AIChatTab'
 import { attachChild, detachChild, getNodeHeight, getNodeWidth, isPointInRect, relayoutChildren } from './blocks/layout'
 import { toYaml, fromYaml } from './blocks/serialization'
-import { flowToPlanSpace } from './blocks/planspaceTransformer'
+import { getTransformer, getTransformerOutputName, hasTransformer } from './transformers'
 import { listFlows, createFlow, updateFlow, deleteFlow as deleteFlowApi, type Flow } from './api'
 
 // Block definition types
 type FieldDef = { name: string; default?: string; options?: string[] }
-type BlockDef = { type: 'container' | 'leaf'; name: string; block_type?: string; fields?: FieldDef[] }
+type BlockDef = { type: 'container' | 'leaf'; name: string; block_type?: string; map_placement?: string; fields?: FieldDef[] }
 type BlockDefsYaml = { blocks: BlockDef[] }
 
 // Workspace types
@@ -31,7 +32,7 @@ export default function App() {
   const [yamlError, setYamlError] = useState<string | null>(null)
   
   // Tab state for YAML pane
-  const [activeTab, setActiveTab] = useState<'flow' | 'planspace'>('flow')
+  const [activeTab, setActiveTab] = useState<'flow' | 'planspace' | 'ai'>('flow')
   const [planspaceContent, setPlanspaceContent] = useState('')
   const [planspaceError, setPlanspaceError] = useState<string | null>(null)
   
@@ -143,6 +144,7 @@ export default function App() {
           fields: blockDef.fields ?? [],
           fieldValues,
           ...(blockDef.block_type ? { block_type: blockDef.block_type } : {}),
+          ...(blockDef.map_placement ? { map_placement: blockDef.map_placement } : {}),
           ...(blockDef.type === 'container' ? { childIds: [] } : {}),
         },
       }
@@ -435,27 +437,33 @@ export default function App() {
     },
   }))
 
-  // Export diagram to YAML (updates right pane) and generate PlanSpace
+  // Export diagram to YAML (updates right pane) and generate transformed output
   const handleExport = useCallback(() => {
     const yaml = toYaml(nodes)
     setYamlContent(yaml)
     setYamlError(null)
     
-    // Also generate PlanSpace YAML
+    // Generate transformed output using workspace-specific transformer
     if (yaml.trim()) {
-      const planspaceResult = flowToPlanSpace(yaml)
-      if (planspaceResult.error) {
-        setPlanspaceError(planspaceResult.error)
-        setPlanspaceContent('')
+      const transformer = getTransformer(selectedWorkspace)
+      if (transformer) {
+        const transformResult = transformer.transform(yaml)
+        if (transformResult.error) {
+          setPlanspaceError(transformResult.error)
+          setPlanspaceContent('')
+        } else {
+          setPlanspaceContent(transformResult.yaml)
+          setPlanspaceError(null)
+        }
       } else {
-        setPlanspaceContent(planspaceResult.yaml)
-        setPlanspaceError(null)
+        setPlanspaceError(`No transformer available for workspace: ${selectedWorkspace}`)
+        setPlanspaceContent('')
       }
     } else {
       setPlanspaceContent('')
       setPlanspaceError(null)
     }
-  }, [nodes])
+  }, [nodes, selectedWorkspace])
 
   // Import diagram from YAML (from right pane content)
   const handleImport = useCallback(() => {
@@ -527,8 +535,11 @@ export default function App() {
 
     // Export current canvas to YAML
     const flowYaml = toYaml(nodes)
-    const planspaceResult = flowToPlanSpace(flowYaml)
-    const planYaml = planspaceResult.yaml
+    
+    // Use workspace-specific transformer
+    const transformer = getTransformer(selectedWorkspace)
+    const transformResult = transformer ? transformer.transform(flowYaml) : { yaml: '', error: 'No transformer' }
+    const planYaml = transformResult.yaml
 
     try {
       if (currentFlow) {
@@ -560,7 +571,7 @@ export default function App() {
       setFlowMessage({ type: 'error', text: err.message || 'Failed to save flow' })
     }
     setTimeout(() => setFlowMessage(null), 3000)
-  }, [currentFlow, flowName, flowExternalId, nodes])
+  }, [currentFlow, flowName, flowExternalId, nodes, selectedWorkspace])
 
   const handleDeleteFlow = useCallback(async () => {
     if (!currentFlow) {
@@ -909,7 +920,28 @@ export default function App() {
           </div>
         ))}
 
-        <div style={{ marginTop: 'auto', fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
+        {/* API Documentation Link */}
+        <a
+          href="http://localhost:3001/api-docs"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display: 'block',
+            padding: '10px 12px',
+            marginTop: 'auto',
+            background: '#6366f1',
+            borderRadius: 6,
+            color: '#fff',
+            fontWeight: 600,
+            fontSize: 12,
+            textDecoration: 'none',
+            textAlign: 'center',
+          }}
+        >
+          📖 API Docs
+        </a>
+
+        <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
           Press Delete to remove selected.
         </div>
       </aside>
@@ -944,6 +976,7 @@ export default function App() {
           borderLeft: '1px solid var(--border-color)',
           display: 'flex',
           flexDirection: 'column',
+          height: '100%',
         }}
       >
         {/* Tab Headers */}
@@ -986,6 +1019,23 @@ export default function App() {
             }}
           >
             PlanSpace
+          </button>
+          <button
+            onClick={() => setActiveTab('ai')}
+            style={{
+              flex: 1,
+              padding: '12px 16px',
+              background: activeTab === 'ai' ? 'var(--tab-active-bg)' : 'var(--tab-inactive-bg)',
+              border: 'none',
+              borderBottom: activeTab === 'ai' ? '2px solid #10b981' : '2px solid transparent',
+              color: activeTab === 'ai' ? 'var(--text-primary)' : 'var(--text-secondary)',
+              fontWeight: 600,
+              fontSize: 12,
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+            }}
+          >
+            🤖 AI
           </button>
         </div>
 
@@ -1151,6 +1201,26 @@ export default function App() {
               </div>
             )}
           </>
+        )}
+
+        {/* AI Assistant Tab Content */}
+        {activeTab === 'ai' && (
+          <AIChatTab
+            workspace={selectedWorkspace.toLowerCase()}
+            currentFlowYaml={yamlContent}
+            onApplyYaml={(yaml) => {
+              setYamlContent(yaml)
+              const result = fromYaml(yaml, blockDefs)
+              if (!result.error) {
+                setNodes(result.nodes)
+                setYamlError(null)
+                setFlowMessage({ type: 'success', text: 'Flow applied from AI!' })
+                setTimeout(() => setFlowMessage(null), 3000)
+              } else {
+                setYamlError(result.error)
+              }
+            }}
+          />
         )}
       </aside>
       </div>

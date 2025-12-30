@@ -1,0 +1,390 @@
+# =============================================================================
+# AI CONTEXT: state Block
+# Workspace: Actions
+# =============================================================================
+
+block_name: "state"
+block_type: leaf
+workspace: actions
+
+# -----------------------------------------------------------------------------
+# CORE INTENT
+# -----------------------------------------------------------------------------
+intent: |
+  Declares and initializes a state variable that can be used in Pre-Conditions List,
+  post_effects, or by other cards within the action flow. State variables track
+  the status of data collection, card execution, and other runtime conditions.
+
+description: |
+  The state block is a leaf within State List that declares a single state
+  variable with its initial value. These state variables form the system's
+  state model and are used throughout the card execution flow.
+  
+  Key behaviors:
+  - Declares a named state variable with initial value (e.g., truck_number_filled: False)
+  - Referenced in Pre-Conditions List as checks (e.g., state.truck_number_filled == False)
+  - Updated in post_effects as assignments (e.g., state.truck_number_filled = True)
+  - Can be shared across cards within the same Action flow
+  - System state is the aggregate of all declared state variables
+  
+  Common state variable patterns:
+  - Field tracking: {field}_filled: False, {field}_validated: False
+  - Card status: {card_id}_timeout: False, {card_id}_completed: False
+  - Process state: session_active: False, driver_verified: False, access_granted: False
+
+# -----------------------------------------------------------------------------
+# SEMANTIC ROLE
+# -----------------------------------------------------------------------------
+semantic_role: constraint
+
+# -----------------------------------------------------------------------------
+# FIELD DEFINITIONS
+# -----------------------------------------------------------------------------
+fields:
+  "{state_name}":
+    intent: "The state variable name and its initial value"
+    description: |
+      State is declared as a key-value pair where the key is the state 
+      variable name and the value is the initial state (typically False
+      for boolean states).
+      
+      Format: {state_name}: {initial_value}
+      
+      For example:
+      - truck_number_filled: False
+      - session_active: False
+      - access_granted: False
+      
+      This name is used when referencing the state in Pre-Conditions List
+      and post_effects expressions, prefixed with "state."
+      
+      For example, if state is "truck_number_filled: False":
+      - Pre-condition: state.truck_number_filled == False
+      - Post-effect: state.truck_number_filled = True
+    value_type: "boolean (False or True)"
+    required: true
+    default_behavior: |
+      State should be explicitly initialized, typically to False for 
+      boolean tracking states.
+    examples:
+      - "truck_number_filled: False"
+      - "trailer_number_filled: False"
+      - "driver_verified: False"
+      - "collect_truck_num_v1_timeout: False"
+      - "session_active: False"
+      - "access_granted: False"
+
+# -----------------------------------------------------------------------------
+# STRUCTURAL CONSTRAINTS
+# -----------------------------------------------------------------------------
+allowed_children: []  # Leaf block - no children
+
+required_children:
+  min: 0
+  max: 0
+  types: []
+
+allowed_parents:
+  - State List  # state can only exist inside State List
+
+# -----------------------------------------------------------------------------
+# RESTRICTIONS & RULES
+# -----------------------------------------------------------------------------
+restrictions:
+  - "state blocks can ONLY exist as direct children of State List"
+  - "Each state name should be unique within the Card"
+  - "State names should follow consistent naming conventions"
+  - "States declared here should be referenced in Pre-Conditions List or post_effects"
+  - "State names cannot contain spaces - use underscores"
+  - "State values should be initialized (typically False for boolean tracking)"
+
+# -----------------------------------------------------------------------------
+# RELATIONSHIPS
+# -----------------------------------------------------------------------------
+relationships:
+  requires:
+    - State List  # state must have a State List parent
+  
+  pairs_with:
+    - Pre-Condition  # States are checked in pre-conditions
+    - Post Effect    # States are updated in post-effects
+  
+  typically_preceded_by: null  # Order in State List is flexible
+  
+  typically_followed_by: null  # Order in State List is flexible
+
+# -----------------------------------------------------------------------------
+# USAGE EXAMPLES
+# -----------------------------------------------------------------------------
+examples:
+  - name: "Simple Field Tracking State"
+    description: "State to track if a field has been filled"
+    yaml: |
+      state:
+        - truck_number_filled: False
+
+  - name: "Card Timeout State"
+    description: "State to track if card timed out"
+    yaml: |
+      state:
+        - collect_truck_num_v1_timeout: False
+
+  - name: "Multiple States in State List"
+    description: "Several related state declarations"
+    yaml: |
+      State List:
+        - state:
+            - truck_number_filled: False
+        - state:
+            - collect_truck_num_v1_timeout: False
+        - state:
+            - collect_truck_num_v1_maxretries: False
+
+  - name: "Process State Variables"
+    description: "States for tracking process flow"
+    yaml: |
+      State List:
+        - state:
+            - session_active: False
+        - state:
+            - driver_verified: False
+        - state:
+            - access_granted: False
+
+  - name: "State Used in Pre-Condition"
+    description: "How state is referenced in Pre-Conditions List"
+    yaml: |
+      Card:
+        - card_id: collect_truck_num_v1
+        - State List:
+            - state:
+                - truck_number_filled: False  # Declaration with initial value
+        - Pre-Conditions List:
+            - Pre-Condition:
+                - pre_condition: state.truck_number_filled == False  # Reference
+
+  - name: "State Used in Post-Effect"
+    description: "How state is updated in post_effects"
+    yaml: |
+      Card:
+        - card_id: collect_truck_num_v1
+        - State List:
+            - state:
+                - truck_number_filled: False  # Declaration with initial value
+        - post_effects:
+            - Post Effect:
+                - post_effect: state.truck_number_filled = True  # Update
+
+  - name: "Complete State Flow in Card"
+    description: "State declaration, check, and update"
+    yaml: |
+      Card:
+        - card_id: collect_truck_num_v1
+        - State List:
+            - state:
+                - truck_number_filled: False
+            - state:
+                - collect_truck_num_v1_timeout: False
+        - delivery:
+            - intent:
+                - intent: collect
+            - interaction:
+                - interaction_type: input.text
+                - field:
+                    - field: truck_number
+                    - label: Truck Number
+                    - prompt: Enter truck number
+        - Policy:
+            - Timeout:
+                - timeout_sec: "30"
+        - Pre-Conditions List:
+            - Pre-Condition:
+                - pre_condition: state.truck_number_filled == False
+        - post_effects:
+            - Post Effect:
+                - post_effect: state.truck_number_filled = True
+
+# -----------------------------------------------------------------------------
+# COMMON MISTAKES
+# -----------------------------------------------------------------------------
+common_mistakes:
+  - mistake: "Placing state outside of State List"
+    correction: "state blocks must always be inside State List"
+    example_wrong: |
+      Card:
+        - card_id: my_card
+        - state:  # Error: Not inside State List!
+            - my_state: False
+    example_correct: |
+      Card:
+        - card_id: my_card
+        - State List:
+            - state:  # Correct: Inside State List
+                - my_state: False
+
+  - mistake: "Using spaces in state name"
+    correction: "Use underscores instead of spaces"
+    example_wrong: |
+      state:
+        - truck number filled: False  # Error: Spaces in name!
+    example_correct: |
+      state:
+        - truck_number_filled: False  # Correct: Underscores
+
+  - mistake: "Not initializing state value"
+    correction: "Always initialize state with a value"
+    example_wrong: |
+      state:
+        - name: truck_number_filled  # Wrong: Using name field without value
+    example_correct: |
+      state:
+        - truck_number_filled: False  # Correct: Direct key-value with initial value
+
+  - mistake: "Declaring state but not using it"
+    correction: "Declared states should be referenced in Pre-Conditions List or post_effects"
+    example_wrong: |
+      Card:
+        - State List:
+            - state:
+                - unused_state: False  # Warning: Never referenced!
+        - Pre-Conditions List: ...
+        - post_effects: ...
+    example_correct: |
+      Card:
+        - State List:
+            - state:
+                - truck_number_filled: False
+        - Pre-Conditions List:
+            - Pre-Condition:
+                - pre_condition: state.truck_number_filled == False  # Used
+        - post_effects:
+            - Post Effect:
+                - post_effect: state.truck_number_filled = True  # Used
+
+  - mistake: "Using state in conditions without declaring"
+    correction: "All states used in conditions should be declared in State List"
+    example_wrong: |
+      Card:
+        - State List:
+            - state:
+                - truck_number_filled: False
+        - Pre-Conditions List:
+            - Pre-Condition:
+                - pre_condition: state.driver_verified == True  # Error: Not declared!
+    example_correct: |
+      Card:
+        - State List:
+            - state:
+                - truck_number_filled: False
+            - state:
+                - driver_verified: False  # Now declared
+        - Pre-Conditions List:
+            - Pre-Condition:
+                - pre_condition: state.driver_verified == True
+
+# -----------------------------------------------------------------------------
+# GENERATION HINTS
+# -----------------------------------------------------------------------------
+generation_hints:
+  use_when:
+    - "Card needs to track a status flag"
+    - "Pre-conditions need a state to check"
+    - "Post-effects need a state to update"
+    - "Other cards need to know this card's status"
+  
+  do_not_use_when:
+    - "There is no parent State List"
+    - "The state isn't needed for any conditions"
+  
+  keywords:
+    - "state"
+    - "filled"
+    - "completed"
+    - "timeout"
+    - "verified"
+    - "active"
+    - "track"
+    - "status"
+
+# -----------------------------------------------------------------------------
+# NAMING CONVENTIONS
+# -----------------------------------------------------------------------------
+naming_conventions: |
+  Recommended state variable naming patterns:
+  
+  Field Tracking:
+  ├── {field}_filled: False         → truck_number_filled: False
+  ├── {field}_validated: False      → truck_number_validated: False
+  └── {field}_error: False          → truck_number_error: False
+  
+  Card Status:
+  ├── {card_id}_timeout: False      → collect_truck_num_v1_timeout: False
+  ├── {card_id}_completed: False    → collect_truck_num_v1_completed: False
+  └── {card_id}_maxretries: False   → collect_truck_num_v1_maxretries: False
+  
+  Process State:
+  ├── session_active: False
+  ├── driver_verified: False
+  ├── credentials_validated: False
+  └── access_granted: False
+  
+  Guidelines:
+  • Use lowercase with underscores (snake_case)
+  • Be descriptive but concise
+  • Include context (field name, card ID) when relevant
+  • Use boolean-friendly names (_filled, _active, _verified)
+  • Initialize with False (states start as not-yet-achieved)
+
+# -----------------------------------------------------------------------------
+# STATE LIFECYCLE
+# -----------------------------------------------------------------------------
+state_lifecycle: |
+  A state variable goes through a lifecycle:
+  
+  1. DECLARATION (State List) with initial value
+     state:
+       - truck_number_filled: False
+  
+  2. INITIAL VALUE (explicit)
+     state.truck_number_filled starts as False
+  
+  3. CHECK (Pre-Conditions List)
+     state.truck_number_filled == False → Card can run
+  
+  4. UPDATE (post_effects)
+     state.truck_number_filled = True → State changed
+  
+  5. SUBSEQUENT CHECK (Pre-Conditions List of same/other cards)
+     state.truck_number_filled == False → FALSE (won't run again)
+     state.truck_number_filled == True → TRUE (can run if dependent)
+  
+  This lifecycle enables:
+  • One-time execution (check False, set True)
+  • Sequential dependencies (Card B waits for Card A's state)
+  • Error handling (check timeout/error states)
+
+# -----------------------------------------------------------------------------
+# CROSS-CARD STATE SHARING
+# -----------------------------------------------------------------------------
+cross_card_sharing: |
+  States can be shared across cards in the same Action:
+  
+  Card A (collect_truck_number):
+    State List:
+      - state:
+          - truck_number_filled: False
+    post_effects:
+      - state.truck_number_filled = True
+  
+  Card B (collect_trailer_number):
+    State List:
+      - state:
+          - truck_number_filled: False    # References Card A's state (same name)
+      - state:
+          - trailer_number_filled: False
+    Pre-Conditions List:
+      - state.truck_number_filled == True  # Waits for Card A
+    post_effects:
+      - state.trailer_number_filled = True
+  
+  This enables sequential card execution based on state dependencies.

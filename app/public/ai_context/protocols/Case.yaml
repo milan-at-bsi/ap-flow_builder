@@ -1,0 +1,270 @@
+# =============================================================================
+# AI CONTEXT: Case Block
+# Workspace: Protocols
+# =============================================================================
+
+block_name: "Case"
+block_type: container
+workspace: protocols
+
+# -----------------------------------------------------------------------------
+# CORE INTENT
+# -----------------------------------------------------------------------------
+intent: |
+  Represents one branch within a Switch block. When the Switch's evaluated
+  variable matches this Case's "match" value, the contents of this Case
+  are executed.
+
+description: |
+  The Case block defines a conditional branch within a Switch. Each Case
+  has a "match" field that specifies what value the Switch's variable must
+  equal for this branch to be taken.
+  
+  Key behaviors:
+  - Cases must always be children of a Switch block
+  - The "match" field is compared against the Switch's "On" variable
+  - Multiple Cases in a Switch are displayed side-by-side (horizontal layout)
+  - Each Case can contain any valid child blocks (Fill Data, Access Decision, etc.)
+  - Case can even contain nested Switch blocks for multi-level branching
+
+# -----------------------------------------------------------------------------
+# SEMANTIC ROLE
+# -----------------------------------------------------------------------------
+semantic_role: branching
+
+# -----------------------------------------------------------------------------
+# FIELD DEFINITIONS
+# -----------------------------------------------------------------------------
+fields:
+  match:
+    intent: "Specifies the value that triggers this branch"
+    description: |
+      The "match" field contains the value to compare against the parent
+      Switch's "On" variable. When they are equal, this Case branch executes.
+      The match value should correspond to possible values of the data_field
+      being switched on.
+    value_type: text
+    required: true
+    default_behavior: |
+      If left empty, this Case will never match anything (effectively dead code).
+    examples:
+      - "truck"
+      - "bobtail"
+      - "personal"
+      - "visitor"
+      - "ABC123"
+
+# -----------------------------------------------------------------------------
+# STRUCTURAL CONSTRAINTS
+# -----------------------------------------------------------------------------
+allowed_children:
+  - Fill Data
+  - Switch  # For nested branching
+  - Access Decision
+  - required  # Constraints can be inside cases
+
+required_children:
+  min: 0
+  max: null
+  types: null  # No specific type required
+
+allowed_parents:
+  - Switch  # Case can ONLY be inside a Switch
+
+# -----------------------------------------------------------------------------
+# RESTRICTIONS & RULES
+# -----------------------------------------------------------------------------
+restrictions:
+  - "Case blocks can ONLY exist as direct children of a Switch"
+  - "Each Case within the same Switch must have a unique 'match' value"
+  - "The 'match' value should correspond to possible values of the switched variable"
+  - "A Case should typically end with an Access Decision or lead to one"
+  - "Avoid empty Cases - they should contain meaningful flow content"
+
+# -----------------------------------------------------------------------------
+# RELATIONSHIPS
+# -----------------------------------------------------------------------------
+relationships:
+  requires:
+    - Switch  # Case must have a Switch parent
+  
+  pairs_with:
+    - Switch  # Always used together with Switch
+    - Case    # Sibling Cases in the same Switch
+  
+  typically_preceded_by: null  # Case is inside Switch, not preceded by siblings
+  
+  typically_followed_by: null  # Cases are peers, not sequential
+
+# -----------------------------------------------------------------------------
+# USAGE EXAMPLES
+# -----------------------------------------------------------------------------
+examples:
+  - name: "Simple Case with Access Decision"
+    description: "A Case that leads directly to a decision"
+    yaml: |
+      Case:
+        - match: truck
+        - Access Decision:
+            - access: Granted
+
+  - name: "Case with Data Collection"
+    description: "Collect additional data before deciding"
+    yaml: |
+      Case:
+        - match: truck
+        - Fill Data:
+            - truck_number
+        - Fill Data:
+            - trailer_number
+        - Access Decision:
+            - access: Granted
+
+  - name: "Case with Nested Switch"
+    description: "Multi-level branching"
+    yaml: |
+      Case:
+        - match: truck
+        - Fill Data:
+            - truck_number
+        - Switch:
+            - On: truck_number
+            - Case:
+                - match: "known"
+                - Access Decision:
+                    - access: Granted
+            - Case:
+                - match: "unknown"
+                - Access Decision:
+                    - access: Denied
+
+  - name: "Multiple Cases in Context"
+    description: "How Cases appear as siblings in a Switch"
+    yaml: |
+      Switch:
+        - On: vehicle_type
+        - Case:
+            - match: truck
+            - Access Decision:
+                - access: Granted
+        - Case:
+            - match: bobtail
+            - Access Decision:
+                - access: Granted
+        - Case:
+            - match: personal
+            - Access Decision:
+                - access: Denied
+
+  - name: "Case with Constraint"
+    description: "Adding a required constraint to data collection"
+    yaml: |
+      Case:
+        - match: truck
+        - Fill Data:
+            - truck_number
+            - required:
+                - value: "true"
+        - Access Decision:
+            - access: Granted
+
+# -----------------------------------------------------------------------------
+# COMMON MISTAKES
+# -----------------------------------------------------------------------------
+common_mistakes:
+  - mistake: "Placing Case outside of a Switch"
+    correction: "Case blocks must always be direct children of a Switch"
+    example_wrong: |
+      Protocol:
+        - Case:  # Error: Case without Switch parent!
+            - match: truck
+    example_correct: |
+      Protocol:
+        - Switch:
+            - On: vehicle_type
+            - Case:  # Correct: Inside Switch
+                - match: truck
+
+  - mistake: "Duplicate match values in sibling Cases"
+    correction: "Each Case in a Switch needs a unique match value"
+    example_wrong: |
+      Switch:
+        - On: vehicle_type
+        - Case:
+            - match: truck
+        - Case:
+            - match: truck  # Error: Duplicate!
+    example_correct: |
+      Switch:
+        - On: vehicle_type
+        - Case:
+            - match: truck
+        - Case:
+            - match: car  # Unique
+
+  - mistake: "Empty Case with no content"
+    correction: "Cases should contain meaningful flow content"
+    example_wrong: |
+      Switch:
+        - On: vehicle_type
+        - Case:
+            - match: truck
+            # No content - what happens here?
+        - Case:
+            - match: car
+    example_correct: |
+      Switch:
+        - On: vehicle_type
+        - Case:
+            - match: truck
+            - Access Decision:
+                - access: Granted
+        - Case:
+            - match: car
+            - Access Decision:
+                - access: Denied
+
+  - mistake: "Case without ending in a terminal block"
+    correction: "Each Case should eventually lead to an Access Decision"
+    example_wrong: |
+      Case:
+        - match: truck
+        - Fill Data:
+            - truck_number
+        # No Access Decision - flow has no conclusion
+    example_correct: |
+      Case:
+        - match: truck
+        - Fill Data:
+            - truck_number
+        - Access Decision:
+            - access: Granted
+
+# -----------------------------------------------------------------------------
+# GENERATION HINTS
+# -----------------------------------------------------------------------------
+generation_hints:
+  use_when:
+    - "A Switch needs branches for different scenarios"
+    - "The user specifies different outcomes for different values"
+    - "Handling 'if X is Y, then...' scenarios"
+  
+  do_not_use_when:
+    - "There is no parent Switch block"
+    - "Only one scenario exists (no branching needed)"
+  
+  keywords:
+    - "if"
+    - "when"
+    - "for X..."
+    - "in the case of"
+    - "scenario"
+    - "option"
+
+# -----------------------------------------------------------------------------
+# VISUAL NOTES
+# -----------------------------------------------------------------------------
+visual_notes: |
+  In the UI, Cases are displayed horizontally side-by-side within their
+  parent Switch, thanks to the "map_placement: horizontal" attribute.
+  This visually represents the branching nature of the Switch/Case pattern.

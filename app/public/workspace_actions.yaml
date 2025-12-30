@@ -4,9 +4,12 @@ blocks:
     fields:
     - name: action
   - type: container
+    map_placement: horizontal
     name: Card
     fields:
     - name: card_id
+  - type: container
+    name: State List    
   - type: container
     name: delivery
   - type: leaf
@@ -26,6 +29,16 @@ blocks:
       - input.text
       - acknwoledge
   - type: leaf
+    name: Goal State
+    fields:
+    - name: goal_state
+      default: "[field]_filled == True"
+  - type: leaf
+    name: state
+    fields:
+    - name: init
+      default: "variable_name: False"
+  - type: leaf
     name: field
     fields:
     - name: field
@@ -44,7 +57,7 @@ blocks:
   - type: container
     name: Policy
   - type: container
-    name: pre_conditions
+    name: Pre-Conditions List
   - type: leaf
     name: Pre-Condition
     fields:
@@ -61,4 +74,4 @@ blocks:
     name: Timeout
     fields:
     - name: timeout_sec
-      default: "30"  
+      default: "30"

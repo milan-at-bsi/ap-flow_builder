@@ -1,0 +1,286 @@
+# =============================================================================
+# AI CONTEXT: intent Block
+# Workspace: Actions
+# =============================================================================
+
+block_name: "intent"
+block_type: leaf
+workspace: actions
+
+# -----------------------------------------------------------------------------
+# CORE INTENT
+# -----------------------------------------------------------------------------
+intent: |
+  Specifies the high-level purpose or direction of a delivery, providing a
+  hint to the adaptive card about WHAT the delivery is trying to accomplish.
+  This guides how the card should behave and present itself.
+
+description: |
+  The intent block is a leaf within delivery that declares the semantic purpose
+  of the delivery. While `interaction` defines HOW to interact with the user,
+  `intent` defines WHAT the delivery is trying to achieve.
+  
+  Key behaviors:
+  - Provides direction/hint for adaptive card rendering
+  - Works in tandem with `interaction` block
+  - Helps surfaces understand the delivery's purpose
+  - Enables surface-specific optimizations based on intent
+  
+  Intent types:
+  - `collect`: Delivery is gathering data from the user
+  - `acknowledge`: Delivery is confirming/acknowledging something to the user
+
+# -----------------------------------------------------------------------------
+# SEMANTIC ROLE
+# -----------------------------------------------------------------------------
+semantic_role: data_collection
+
+# -----------------------------------------------------------------------------
+# FIELD DEFINITIONS
+# -----------------------------------------------------------------------------
+fields:
+  intent:
+    intent: "Specifies the purpose of the delivery"
+    description: |
+      The intent field declares what the delivery is trying to accomplish.
+      This helps adaptive cards understand the context and optimize their
+      presentation accordingly:
+      - `collect`: User input is expected (shows input UI)
+      - `acknowledge`: User confirms receipt (shows confirmation UI)
+    value_type: text
+    required: true
+    default_behavior: |
+      Defaults to "collect" if not specified.
+    valid_values:
+      - collect: "Delivery collects/gathers data from the user"
+      - acknowledge: "Delivery sends acknowledgement/confirmation to user"
+    examples:
+      - "collect"
+      - "acknowledge"
+
+# -----------------------------------------------------------------------------
+# STRUCTURAL CONSTRAINTS
+# -----------------------------------------------------------------------------
+allowed_children: []  # Leaf block - no children
+
+required_children:
+  min: 0
+  max: 0
+  types: []
+
+allowed_parents:
+  - delivery  # intent can only exist inside delivery
+
+# -----------------------------------------------------------------------------
+# RESTRICTIONS & RULES
+# -----------------------------------------------------------------------------
+restrictions:
+  - "intent blocks can ONLY exist as direct children of delivery"
+  - "intent should match the interaction_type logically"
+  - "One intent per delivery is typical"
+  - "Use 'collect' when gathering user input"
+  - "Use 'acknowledge' when confirming/notifying user"
+
+# -----------------------------------------------------------------------------
+# RELATIONSHIPS
+# -----------------------------------------------------------------------------
+relationships:
+  requires:
+    - delivery  # intent must have a delivery parent
+  
+  pairs_with:
+    - interaction  # Works with interaction to define complete delivery
+  
+  typically_preceded_by: null  # Usually first child of delivery
+  
+  typically_followed_by:
+    - interaction  # interaction usually follows intent
+
+# -----------------------------------------------------------------------------
+# USAGE EXAMPLES
+# -----------------------------------------------------------------------------
+examples:
+  - name: "Collect Intent"
+    description: "Intent for data collection delivery"
+    yaml: |
+      intent:
+        - intent: collect
+
+  - name: "Acknowledge Intent"
+    description: "Intent for acknowledgement delivery"
+    yaml: |
+      intent:
+        - intent: acknowledge
+
+  - name: "In Delivery Context (Collect)"
+    description: "How intent pairs with interaction for data collection"
+    yaml: |
+      delivery:
+        - intent:
+            - intent: collect
+        - interaction:
+            - interaction_type: input.text
+            - field:
+                - field: truck_number
+                - label: Truck Number
+                - prompt: Please enter your truck number
+
+  - name: "In Delivery Context (Acknowledge)"
+    description: "How intent pairs with interaction for acknowledgement"
+    yaml: |
+      delivery:
+        - intent:
+            - intent: acknowledge
+        - interaction:
+            - interaction_type: acknowledge
+
+  - name: "In Full Card Context"
+    description: "intent in a complete Card structure"
+    yaml: |
+      Card:
+        - card_id: collect_truck_num_v1
+        - delivery:
+            - intent:
+                - intent: collect
+            - interaction:
+                - interaction_type: input.text
+                - field:
+                    - field: truck_number
+                    - label: Truck Number
+                    - prompt: Please enter your truck number
+        - Policy:
+            - Timeout:
+                - timeout_sec: "30"
+        - Pre-Conditions List:
+            - Pre-Condition:
+                - pre_condition: state.truck_number_filled == False
+        - post_effects:
+            - Post Effect:
+                - post_effect: state.truck_number_filled = True
+
+# -----------------------------------------------------------------------------
+# COMMON MISTAKES
+# -----------------------------------------------------------------------------
+common_mistakes:
+  - mistake: "Placing intent outside of delivery"
+    correction: "intent blocks must always be inside delivery"
+    example_wrong: |
+      Card:
+        - card_id: my_card
+        - intent:  # Error: Not inside delivery!
+            - intent: collect
+    example_correct: |
+      Card:
+        - card_id: my_card
+        - delivery:
+            - intent:  # Correct: Inside delivery
+                - intent: collect
+
+  - mistake: "Mismatched intent and interaction_type"
+    correction: "intent and interaction_type should be logically consistent"
+    example_wrong: |
+      delivery:
+        - intent:
+            - intent: collect  # Wants to collect
+        - interaction:
+            - interaction_type: acknowledge  # But no input mechanism!
+    example_correct: |
+      delivery:
+        - intent:
+            - intent: collect
+        - interaction:
+            - interaction_type: input.text  # Matching input method
+            - field: ...
+
+  - mistake: "Using invalid intent value"
+    correction: "Use only 'collect' or 'acknowledge'"
+    example_wrong: |
+      intent:
+        - intent: get_data  # Error: Not a valid option!
+    example_correct: |
+      intent:
+        - intent: collect  # Valid option
+
+  - mistake: "Missing intent in delivery"
+    correction: "Every delivery should have an intent"
+    example_wrong: |
+      delivery:
+        - interaction:  # Missing intent!
+            - interaction_type: input.text
+    example_correct: |
+      delivery:
+        - intent:
+            - intent: collect
+        - interaction:
+            - interaction_type: input.text
+
+# -----------------------------------------------------------------------------
+# GENERATION HINTS
+# -----------------------------------------------------------------------------
+generation_hints:
+  use_when:
+    - "Creating a delivery block"
+    - "Need to specify the purpose of user interaction"
+    - "Collecting data from user → use 'collect'"
+    - "Confirming/acknowledging to user → use 'acknowledge'"
+  
+  do_not_use_when:
+    - "There is no parent delivery block"
+  
+  keywords:
+    - "collect"
+    - "gather"
+    - "input"
+    - "acknowledge"
+    - "confirm"
+    - "notify"
+    - "purpose"
+    - "what"
+
+# -----------------------------------------------------------------------------
+# INTENT VS INTERACTION
+# -----------------------------------------------------------------------------
+intent_vs_interaction: |
+  The delivery block uses two complementary concepts:
+  
+  ┌─────────────────────────────────────────────────────────────────┐
+  │                       delivery                                   │
+  │                                                                  │
+  │   ┌──────────────────┐    ┌──────────────────┐                  │
+  │   │     intent       │    │   interaction    │                  │
+  │   │                  │    │                  │                  │
+  │   │  WHAT to do      │    │   HOW to do it   │                  │
+  │   │                  │    │                  │                  │
+  │   │  • collect       │    │  • input.text    │                  │
+  │   │  • acknowledge   │    │  • acknowledge   │                  │
+  │   │                  │    │  • (future...)   │                  │
+  │   └──────────────────┘    └──────────────────┘                  │
+  │                                                                  │
+  └─────────────────────────────────────────────────────────────────┘
+  
+  Common pairings:
+  • intent: collect + interaction_type: input.text
+  • intent: acknowledge + interaction_type: acknowledge
+
+# -----------------------------------------------------------------------------
+# ADAPTIVE CARD GUIDANCE
+# -----------------------------------------------------------------------------
+adaptive_card_guidance: |
+  The intent provides guidance to adaptive cards about how to behave:
+  
+  intent: collect
+  ├── Card expects user input
+  ├── Show input UI appropriate for surface
+  ├── Wait for user response
+  └── Validate and process input
+  
+  intent: acknowledge
+  ├── Card shows information/confirmation
+  ├── Display acknowledgement UI
+  ├── Wait for user confirmation (optional)
+  └── Proceed after acknowledgement
+  
+  Different surfaces can optimize based on intent:
+  • Kiosk: Large touch targets for collect, simple button for acknowledge
+  • Mobile: Native inputs for collect, swipe/tap for acknowledge
+  • Voice: Speech recognition for collect, voice confirm for acknowledge

@@ -1,0 +1,244 @@
+# =============================================================================
+# AI CONTEXT: on_success Block
+# Workspace: Actions
+# =============================================================================
+
+block_name: "on_success"
+block_type: leaf
+workspace: actions
+
+# -----------------------------------------------------------------------------
+# CORE INTENT
+# -----------------------------------------------------------------------------
+intent: |
+  Defines what happens when an interaction completes successfully. Contains
+  a JSON assignment expression that typically updates state variables to
+  indicate the successful completion of data collection.
+
+description: |
+  The on_success block is a leaf within interaction that specifies the state
+  updates to perform when the user interaction succeeds. It works as a pair
+  with on_error for complete interaction handling.
+  
+  Key behaviors:
+  - Fires when interaction completes successfully
+  - Contains JSON assignment expression for state updates
+  - Typically sets field tracking states to true
+  - Updates happen at the interaction level (not card level)
+  - Works in tandem with on_error for complementary handling
+  
+  Common use cases:
+  - Mark fields as filled on successful input
+  - Update success counters or flags
+  - Signal downstream processes that data is ready
+
+# -----------------------------------------------------------------------------
+# SEMANTIC ROLE
+# -----------------------------------------------------------------------------
+semantic_role: action
+
+# -----------------------------------------------------------------------------
+# FIELD DEFINITIONS
+# -----------------------------------------------------------------------------
+fields:
+  on_success:
+    intent: "JSON expression defining state updates on success"
+    description: |
+      The on_success field contains a JSON assignment expression that
+      specifies which state variables to update when the interaction
+      succeeds. The format is typically:
+      "{ variable_name: value, ... }"
+    value_type: text
+    required: true
+    default_behavior: |
+      Defaults to "{ [field]_filled: true }" where [field] is replaced
+      with the actual field name.
+    examples:
+      - "{ truck_number_filled: true }"
+      - "{ driver_name_filled: true, driver_info_started: true }"
+      - "{ input_validated: true, retry_count: 0 }"
+
+# -----------------------------------------------------------------------------
+# STRUCTURAL CONSTRAINTS
+# -----------------------------------------------------------------------------
+allowed_children: []  # Leaf block - no children
+
+required_children:
+  min: 0
+  max: 0
+  types: []
+
+allowed_parents:
+  - interaction  # on_success can only exist inside interaction
+
+# -----------------------------------------------------------------------------
+# RESTRICTIONS & RULES
+# -----------------------------------------------------------------------------
+restrictions:
+  - "on_success blocks can ONLY exist as direct children of interaction"
+  - "The value must be a valid JSON assignment expression"
+  - "State variables should be declared in the Card's State List"
+  - "Should work as a complement to on_error for complete handling"
+  - "One on_success per interaction is typical"
+
+# -----------------------------------------------------------------------------
+# RELATIONSHIPS
+# -----------------------------------------------------------------------------
+relationships:
+  requires:
+    - interaction  # on_success must have an interaction parent
+  
+  pairs_with:
+    - on_error  # Works as a complement to on_error
+    - field     # Usually related to field data collection
+  
+  typically_preceded_by:
+    - field  # Usually comes after field definition
+  
+  typically_followed_by:
+    - on_error  # on_error often follows on_success
+
+# -----------------------------------------------------------------------------
+# USAGE EXAMPLES
+# -----------------------------------------------------------------------------
+examples:
+  - name: "Simple Field Filled"
+    description: "Mark a single field as filled"
+    yaml: |
+      on_success:
+        - on_success: "{ truck_number_filled: true }"
+
+  - name: "Multiple State Updates"
+    description: "Update multiple states on success"
+    yaml: |
+      on_success:
+        - on_success: "{ driver_name_filled: true, driver_info_started: true }"
+
+  - name: "Reset Counter on Success"
+    description: "Reset retry counter when successful"
+    yaml: |
+      on_success:
+        - on_success: "{ input_validated: true, retry_count: 0 }"
+
+  - name: "In Interaction Context"
+    description: "How on_success fits inside interaction"
+    yaml: |
+      interaction:
+        - interaction_type: input.text
+        - field:
+            - field: truck_number
+            - label: Truck Number
+            - prompt: Please enter your truck number
+        - on_success:
+            - on_success: "{ truck_number_filled: true }"
+        - on_error:
+            - on_error: "{ truck_number_filled: false }"
+
+  - name: "In Full Delivery Context"
+    description: "on_success in complete delivery structure"
+    yaml: |
+      delivery:
+        - intent:
+            - intent: collect
+        - interaction:
+            - interaction_type: input.text
+            - field:
+                - field: truck_number
+                - label: Truck Number
+                - prompt: Please enter your TRUCK number
+            - on_success:
+                - on_success: "{ truck_number_filled: true }"
+            - on_error:
+                - on_error: "{ truck_number_filled: false }"
+
+# -----------------------------------------------------------------------------
+# COMMON MISTAKES
+# -----------------------------------------------------------------------------
+common_mistakes:
+  - mistake: "Placing on_success outside of interaction"
+    correction: "on_success blocks must always be inside interaction"
+    example_wrong: |
+      delivery:
+        - intent:
+            - intent: collect
+        - on_success:  # Error: Not inside interaction!
+            - on_success: "{ filled: true }"
+    example_correct: |
+      delivery:
+        - intent:
+            - intent: collect
+        - interaction:
+            - interaction_type: input.text
+            - field: ...
+            - on_success:  # Correct: Inside interaction
+                - on_success: "{ filled: true }"
+
+  - mistake: "Invalid JSON format"
+    correction: "Value must be valid JSON assignment expression"
+    example_wrong: |
+      on_success:
+        - on_success: truck_number_filled = true  # Error: Not JSON format!
+    example_correct: |
+      on_success:
+        - on_success: "{ truck_number_filled: true }"  # Correct: JSON format
+
+  - mistake: "Missing on_error counterpart"
+    correction: "on_success should have a matching on_error for complete handling"
+    example_wrong: |
+      interaction:
+        - field: ...
+        - on_success:
+            - on_success: "{ filled: true }"
+        # Missing on_error!
+    example_correct: |
+      interaction:
+        - field: ...
+        - on_success:
+            - on_success: "{ filled: true }"
+        - on_error:
+            - on_error: "{ filled: false }"
+
+# -----------------------------------------------------------------------------
+# GENERATION HINTS
+# -----------------------------------------------------------------------------
+generation_hints:
+  use_when:
+    - "Interaction needs to update state on success"
+    - "Tracking whether data was collected successfully"
+    - "Need to reset counters or flags on success"
+  
+  do_not_use_when:
+    - "There is no parent interaction block"
+    - "No state updates needed on success"
+  
+  keywords:
+    - "success"
+    - "filled"
+    - "completed"
+    - "valid"
+    - "done"
+    - "true"
+
+# -----------------------------------------------------------------------------
+# ON_SUCCESS VS POST_EFFECTS
+# -----------------------------------------------------------------------------
+on_success_vs_post_effects: |
+  Both update state, but at different levels:
+  
+  on_success (interaction level):
+  ├── Fires when specific interaction succeeds
+  ├── Handles immediate interaction result
+  └── Part of interaction block
+  
+  post_effects (card level):
+  ├── Fires when entire card completes
+  ├── Updates state after all card logic runs
+  └── Part of Card block
+  
+  Example flow:
+  1. User enters truck number
+  2. on_success fires → { truck_number_filled: true }
+  3. Card completes
+  4. post_effects fires → state.truck_number_filled = True
+  
+  Both may update the same state for redundancy/clarity.

@@ -1,0 +1,404 @@
+diagram:
+  - type: container
+    name: Action
+    fields:
+      action: qr_code_checkin
+    children:
+      - type: container
+        name: Card
+        fields:
+          card_id: ask_has_qr_code_v1
+        children:
+          - type: container
+            name: State List
+            fields: {}
+            children:
+              - type: leaf
+                name: state
+                fields:
+                  has_qr_code_asked: "False"
+              - type: leaf
+                name: state
+                fields:
+                  has_qr_code: "False"
+              - type: leaf
+                name: state
+                fields:
+                  qr_scanned: "False"
+              - type: leaf
+                name: state
+                fields:
+                  delivery_method_chosen: "False"
+              - type: leaf
+                name: state
+                fields:
+                  prefers_email: "False"
+              - type: leaf
+                name: state
+                fields:
+                  prefers_sms: "False"
+              - type: leaf
+                name: state
+                fields:
+                  email_collected: "False"
+              - type: leaf
+                name: state
+                fields:
+                  phone_collected: "False"
+              - type: leaf
+                name: state
+                fields:
+                  qr_sent: "False"
+          - type: container
+            name: delivery
+            fields: {}
+            children:
+              - type: leaf
+                name: intent
+                fields:
+                  intent: collect
+              - type: container
+                name: interaction
+                fields:
+                  interaction_type: input.text
+                children:
+                  - type: leaf
+                    name: field
+                    fields:
+                      field: has_qr_code
+                      label: Do you have a QR code?
+                      prompt: Do you have a QR code? Please enter YES or NO
+                  - type: leaf
+                    name: on_success
+                    fields:
+                      on_success: "{ has_qr_code_asked: true }"
+                  - type: leaf
+                    name: on_error
+                    fields:
+                      on_error: "{ has_qr_code_asked: false }"
+          - type: container
+            name: Policy
+            fields: {}
+            children:
+              - type: leaf
+                name: Timeout
+                fields:
+                  timeout_sec: "30"
+          - type: container
+            name: Pre-Conditions List
+            fields: {}
+            children:
+              - type: leaf
+                name: Pre-Condition
+                fields:
+                  pre_condition: state.has_qr_code_asked == False
+          - type: container
+            name: post_effects
+            fields: {}
+            children:
+              - type: leaf
+                name: Post Effect
+                fields:
+                  post_effect: state.has_qr_code_asked = True
+      - type: container
+        name: Card
+        fields:
+          card_id: scan_qr_code_v1
+        children:
+          - type: container
+            name: delivery
+            fields: {}
+            children:
+              - type: leaf
+                name: intent
+                fields:
+                  intent: collect
+              - type: container
+                name: interaction
+                fields:
+                  interaction_type: input.text
+                children:
+                  - type: leaf
+                    name: field
+                    fields:
+                      field: qr_code_value
+                      label: Scan QR Code
+                      prompt: Please scan your QR code now
+                  - type: leaf
+                    name: on_success
+                    fields:
+                      on_success: "{ qr_scanned: true }"
+                  - type: leaf
+                    name: on_error
+                    fields:
+                      on_error: "{ qr_scanned: false }"
+          - type: container
+            name: Policy
+            fields: {}
+            children:
+              - type: leaf
+                name: Timeout
+                fields:
+                  timeout_sec: "60"
+          - type: container
+            name: Pre-Conditions List
+            fields: {}
+            children:
+              - type: leaf
+                name: Pre-Condition
+                fields:
+                  pre_condition: state.has_qr_code_asked == True
+              - type: leaf
+                name: Pre-Condition
+                fields:
+                  pre_condition: state.has_qr_code == True
+              - type: leaf
+                name: Pre-Condition
+                fields:
+                  pre_condition: state.qr_scanned == False
+          - type: container
+            name: post_effects
+            fields: {}
+            children:
+              - type: leaf
+                name: Post Effect
+                fields:
+                  post_effect: state.qr_scanned = True
+      - type: container
+        name: Card
+        fields:
+          card_id: ask_delivery_method_v1
+        children:
+          - type: container
+            name: delivery
+            fields: {}
+            children:
+              - type: leaf
+                name: intent
+                fields:
+                  intent: collect
+              - type: container
+                name: interaction
+                fields:
+                  interaction_type: input.text
+                children:
+                  - type: leaf
+                    name: field
+                    fields:
+                      field: delivery_method
+                      label: Delivery Method
+                      prompt: How would you like to receive your QR code? Enter EMAIL or SMS
+                  - type: leaf
+                    name: on_success
+                    fields:
+                      on_success: "{ delivery_method_chosen: true }"
+                  - type: leaf
+                    name: on_error
+                    fields:
+                      on_error: "{ delivery_method_chosen: false }"
+          - type: container
+            name: Policy
+            fields: {}
+            children:
+              - type: leaf
+                name: Timeout
+                fields:
+                  timeout_sec: "30"
+          - type: container
+            name: Pre-Conditions List
+            fields: {}
+            children:
+              - type: leaf
+                name: Pre-Condition
+                fields:
+                  pre_condition: state.has_qr_code_asked == True
+              - type: leaf
+                name: Pre-Condition
+                fields:
+                  pre_condition: state.has_qr_code == False
+              - type: leaf
+                name: Pre-Condition
+                fields:
+                  pre_condition: state.delivery_method_chosen == False
+          - type: container
+            name: post_effects
+            fields: {}
+            children:
+              - type: leaf
+                name: Post Effect
+                fields:
+                  post_effect: state.delivery_method_chosen = True
+      - type: container
+        name: Card
+        fields:
+          card_id: collect_email_v1
+        children:
+          - type: container
+            name: delivery
+            fields: {}
+            children:
+              - type: leaf
+                name: intent
+                fields:
+                  intent: collect
+              - type: container
+                name: interaction
+                fields:
+                  interaction_type: input.text
+                children:
+                  - type: leaf
+                    name: field
+                    fields:
+                      field: email_address
+                      label: Email Address
+                      prompt: Please enter your EMAIL address to receive the QR code
+                  - type: leaf
+                    name: on_success
+                    fields:
+                      on_success: "{ email_collected: true }"
+                  - type: leaf
+                    name: on_error
+                    fields:
+                      on_error: "{ email_collected: false }"
+          - type: container
+            name: Policy
+            fields: {}
+            children:
+              - type: leaf
+                name: Timeout
+                fields:
+                  timeout_sec: "45"
+          - type: container
+            name: Pre-Conditions List
+            fields: {}
+            children:
+              - type: leaf
+                name: Pre-Condition
+                fields:
+                  pre_condition: state.delivery_method_chosen == True
+              - type: leaf
+                name: Pre-Condition
+                fields:
+                  pre_condition: state.prefers_email == True
+              - type: leaf
+                name: Pre-Condition
+                fields:
+                  pre_condition: state.email_collected == False
+          - type: container
+            name: post_effects
+            fields: {}
+            children:
+              - type: leaf
+                name: Post Effect
+                fields:
+                  post_effect: state.email_collected = True
+      - type: container
+        name: Card
+        fields:
+          card_id: collect_phone_v1
+        children:
+          - type: container
+            name: delivery
+            fields: {}
+            children:
+              - type: leaf
+                name: intent
+                fields:
+                  intent: collect
+              - type: container
+                name: interaction
+                fields:
+                  interaction_type: input.text
+                children:
+                  - type: leaf
+                    name: field
+                    fields:
+                      field: phone_number
+                      label: Phone Number
+                      prompt: Please enter your PHONE NUMBER to receive the QR code via SMS
+                  - type: leaf
+                    name: on_success
+                    fields:
+                      on_success: "{ phone_collected: true }"
+                  - type: leaf
+                    name: on_error
+                    fields:
+                      on_error: "{ phone_collected: false }"
+          - type: container
+            name: Policy
+            fields: {}
+            children:
+              - type: leaf
+                name: Timeout
+                fields:
+                  timeout_sec: "45"
+          - type: container
+            name: Pre-Conditions List
+            fields: {}
+            children:
+              - type: leaf
+                name: Pre-Condition
+                fields:
+                  pre_condition: state.delivery_method_chosen == True
+              - type: leaf
+                name: Pre-Condition
+                fields:
+                  pre_condition: state.prefers_sms == True
+              - type: leaf
+                name: Pre-Condition
+                fields:
+                  pre_condition: state.phone_collected == False
+          - type: container
+            name: post_effects
+            fields: {}
+            children:
+              - type: leaf
+                name: Post Effect
+                fields:
+                  post_effect: state.phone_collected = True
+      - type: container
+        name: Card
+        fields:
+          card_id: send_qr_code_v1
+        children:
+          - type: container
+            name: delivery
+            fields: {}
+            children:
+              - type: leaf
+                name: intent
+                fields:
+                  intent: acknowledge
+              - type: container
+                name: interaction
+                fields:
+                  interaction_type: acknowledge
+                children: []
+          - type: container
+            name: Policy
+            fields: {}
+            children:
+              - type: leaf
+                name: Timeout
+                fields:
+                  timeout_sec: "15"
+          - type: container
+            name: Pre-Conditions List
+            fields: {}
+            children:
+              - type: leaf
+                name: Pre-Condition
+                fields:
+                  pre_condition: state.email_collected == True OR state.phone_collected == True
+              - type: leaf
+                name: Pre-Condition
+                fields:
+                  pre_condition: state.qr_sent == False
+          - type: container
+            name: post_effects
+            fields: {}
+            children:
+              - type: leaf
+                name: Post Effect
+                fields:
+                  post_effect: state.qr_sent = True

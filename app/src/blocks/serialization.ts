@@ -4,7 +4,7 @@ import { relayoutChildren } from './layout'
 
 // Types matching block_definitions.yaml structure
 type FieldDef = { name: string; default?: string; options?: string[] }
-type BlockDef = { type: 'container' | 'leaf'; name: string; block_type?: string; fields?: FieldDef[] }
+type BlockDef = { type: 'container' | 'leaf'; name: string; block_type?: string; map_placement?: string; fields?: FieldDef[] }
 
 // Compact YAML structure - block name as key
 type CompactBlock = {
@@ -51,10 +51,25 @@ export function toYaml(nodes: Node[]): string {
       content['block_type'] = blockTypeAttr
     }
     
-    // Add non-empty fields directly
-    for (const [k, v] of Object.entries(fieldValues)) {
-      if (v && v.trim() !== '') {
-        content[k] = v
+    // Special handling for 'state' blocks: parse 'init' field back to { variable: "value" }
+    // e.g., { init: "has_qr_code_asked: False" } -> { has_qr_code_asked: "False" }
+    if (blockName === 'state' && fieldValues['init']) {
+      const initValue = fieldValues['init']
+      const colonIndex = initValue.indexOf(':')
+      if (colonIndex > 0) {
+        const varName = initValue.substring(0, colonIndex).trim()
+        const varValue = initValue.substring(colonIndex + 1).trim()
+        content[varName] = varValue
+      } else {
+        // If no colon, just use the whole thing as the variable name with False default
+        content[initValue.trim()] = 'False'
+      }
+    } else {
+      // Add non-empty fields directly for other blocks
+      for (const [k, v] of Object.entries(fieldValues)) {
+        if (v && v.trim() !== '') {
+          content[k] = v
+        }
       }
     }
 
@@ -169,9 +184,29 @@ export function fromYaml(
       const id = generateId(block.type)
       
       const fieldValues: Record<string, string> = {}
+      
+      // First, initialize defined fields with their values or empty strings
       if (def.fields) {
         for (const f of def.fields) {
           fieldValues[f.name] = block.fields?.[f.name] ?? ''
+        }
+      }
+      
+      // Special handling for 'state' blocks: convert dynamic fields to 'init' format
+      // e.g., { has_qr_code_asked: "False" } -> { init: "has_qr_code_asked: False" }
+      if (block.name === 'state' && block.fields) {
+        const fieldEntries = Object.entries(block.fields)
+        if (fieldEntries.length > 0) {
+          // Take the first dynamic field and convert to init format
+          const [varName, varValue] = fieldEntries[0]
+          fieldValues['init'] = `${varName}: ${varValue}`
+        }
+      } else if (block.fields) {
+        // For other blocks, capture fields not in definition
+        for (const [key, value] of Object.entries(block.fields)) {
+          if (!(key in fieldValues)) {
+            fieldValues[key] = value
+          }
         }
       }
 
@@ -184,6 +219,8 @@ export function fromYaml(
           blockName: block.name,
           fields: def.fields ?? [],
           fieldValues,
+          ...(def.block_type ? { block_type: def.block_type } : {}),
+          ...(def.map_placement ? { map_placement: def.map_placement } : {}),
           ...(block.type === 'container' ? { childIds: [] } : {}),
         },
         ...(parentId ? { parentNode: parentId, extent: 'parent' as const } : {}),
@@ -244,6 +281,7 @@ export function fromYaml(
             fields: def.fields ?? [],
             fieldValues: {},
             ...(def.block_type ? { block_type: def.block_type } : {}),
+            ...(def.map_placement ? { map_placement: def.map_placement } : {}),
             ...(def.type === 'container' ? { childIds: [] } : {}),
           },
           ...(parentId ? { parentNode: parentId, extent: 'parent' as const } : {}),
@@ -317,13 +355,22 @@ export function fromYaml(
         }
       } else if (typeof content === 'object') {
         // Object with fields (and possibly children array under special handling)
-        for (const [key, value] of Object.entries(content)) {
-          if (typeof value === 'string') {
-            // It's a field
-            fieldValues[key] = value
-          } else if (Array.isArray(value) && isBlockName(key)) {
-            // Nested container with children
-            // This shouldn't happen in our format, but handle it
+        // Special handling for 'state' blocks: convert dynamic fields to 'init' format
+        if (blockName === 'state') {
+          const fieldEntries = Object.entries(content).filter(([_, v]) => typeof v === 'string')
+          if (fieldEntries.length > 0) {
+            const [varName, varValue] = fieldEntries[0]
+            fieldValues['init'] = `${varName}: ${varValue}`
+          }
+        } else {
+          for (const [key, value] of Object.entries(content)) {
+            if (typeof value === 'string') {
+              // It's a field
+              fieldValues[key] = value
+            } else if (Array.isArray(value) && isBlockName(key)) {
+              // Nested container with children
+              // This shouldn't happen in our format, but handle it
+            }
           }
         }
       }
@@ -338,6 +385,7 @@ export function fromYaml(
           fields: def.fields ?? [],
           fieldValues,
           ...(def.block_type ? { block_type: def.block_type } : {}),
+          ...(def.map_placement ? { map_placement: def.map_placement } : {}),
           ...(def.type === 'container' ? { childIds } : {}),
         },
         ...(parentId ? { parentNode: parentId, extent: 'parent' as const } : {}),

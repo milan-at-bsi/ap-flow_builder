@@ -1,9 +1,11 @@
+import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
 import swaggerUi from 'swagger-ui-express'
 import YAML from 'yamljs'
 import path from 'path'
 import flowsRouter from './routes/flows'
+import aiRouter from './routes/ai'
 import { testConnection } from './db'
 
 const app = express()
@@ -18,6 +20,7 @@ app.use(express.json({ limit: '10mb' }))
 
 // Routes
 app.use('/api/flows', flowsRouter)
+app.use('/api/ai', aiRouter)
 
 // Swagger UI
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
@@ -41,21 +44,27 @@ app.get('/health', async (req, res) => {
 
 // Start server
 async function start() {
-  // Wait for database connection
-  let retries = 10
+  // Try to connect to database (optional - AI features work without it)
+  let dbConnected = false
+  let retries = 3
   while (retries > 0) {
-    const connected = await testConnection()
-    if (connected) {
+    dbConnected = await testConnection()
+    if (dbConnected) {
       console.log('Database connected')
       break
     }
-    console.log(`Waiting for database... (${retries} retries left)`)
+    console.log(`Database not available, retrying... (${retries} retries left)`)
     retries--
-    await new Promise(resolve => setTimeout(resolve, 2000))
+    await new Promise(resolve => setTimeout(resolve, 1000))
+  }
+  
+  if (!dbConnected) {
+    console.log('⚠️  Starting without database - flow saving/loading disabled, AI features available')
   }
 
   app.listen(PORT, () => {
     console.log(`API server running on http://localhost:${PORT}`)
+    console.log(`API docs: http://localhost:${PORT}/api-docs`)
   })
 }
 

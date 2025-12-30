@@ -1,0 +1,249 @@
+# =============================================================================
+# AI CONTEXT: Switch Block
+# Workspace: Protocols
+# =============================================================================
+
+block_name: "Switch"
+block_type: container
+workspace: protocols
+
+# -----------------------------------------------------------------------------
+# CORE INTENT
+# -----------------------------------------------------------------------------
+intent: |
+  Creates conditional branching based on a variable's value, routing the flow
+  to different Case children depending on which Case's match value equals
+  the variable specified in the "On" field.
+
+description: |
+  The Switch block is a control flow container that evaluates a variable
+  (specified in its "On" field) and directs execution to the appropriate
+  Case child based on value matching.
+  
+  Key behaviors:
+  - The "On" field should reference a data_field that was collected earlier
+  - Each child Case block has a "match" field with a value to compare against
+  - When the variable's value matches a Case's match value, that branch executes
+  - Cases are visually displayed side-by-side (horizontal layout)
+  - Only one Case branch will execute per flow execution
+
+# -----------------------------------------------------------------------------
+# SEMANTIC ROLE
+# -----------------------------------------------------------------------------
+semantic_role: branching
+
+# -----------------------------------------------------------------------------
+# FIELD DEFINITIONS
+# -----------------------------------------------------------------------------
+fields:
+  On:
+    intent: "Specifies the variable name to evaluate for branching"
+    description: |
+      The "On" field contains the name of a data_field that has been
+      collected earlier in the flow. The Switch will compare this
+      variable's value against each Case's match value to determine
+      which branch to take.
+    value_type: block_reference
+    required: true
+    default_behavior: |
+      If left empty, the Switch cannot function properly. The UI allows
+      dragging a data_field block onto the Switch to auto-populate this field.
+    examples:
+      - "vehicle_type"
+      - "truck_number"
+      - "cdl_number"
+
+# -----------------------------------------------------------------------------
+# STRUCTURAL CONSTRAINTS
+# -----------------------------------------------------------------------------
+allowed_children:
+  - Case
+
+required_children:
+  min: 2
+  max: null
+  types:
+    - Case
+
+allowed_parents:
+  - Protocol
+  - Case  # Switches can be nested inside Cases for multi-level branching
+
+# -----------------------------------------------------------------------------
+# RESTRICTIONS & RULES
+# -----------------------------------------------------------------------------
+restrictions:
+  - "The 'On' field must reference a data_field that has been collected earlier in the flow"
+  - "Each Case child must have a unique 'match' value within the same Switch"
+  - "A Switch must have at least 2 Case children to be meaningful"
+  - "Only Case blocks can be direct children of a Switch"
+  - "The referenced variable must be a string type for proper matching"
+
+# -----------------------------------------------------------------------------
+# RELATIONSHIPS
+# -----------------------------------------------------------------------------
+relationships:
+  requires:
+    - data_field  # A data_field must be referenced in the "On" field
+    - Fill Data   # The data_field should be collected via Fill Data first
+  
+  pairs_with:
+    - Case  # Switch always contains Case children
+  
+  typically_preceded_by:
+    - Fill Data  # Usually follows data collection to branch on that data
+  
+  typically_followed_by: null  # Switch doesn't have siblings after it typically
+
+# -----------------------------------------------------------------------------
+# USAGE EXAMPLES
+# -----------------------------------------------------------------------------
+examples:
+  - name: "Basic Switch on Vehicle Type"
+    description: "Branch based on what type of vehicle is entering"
+    yaml: |
+      Switch:
+        - On: vehicle_type
+        - Case:
+            - match: truck
+        - Case:
+            - match: bobtail
+
+  - name: "Switch with Complete Cases"
+    description: "Each case has its own data collection and decision"
+    yaml: |
+      Switch:
+        - On: vehicle_type
+        - Case:
+            - match: truck
+            - Fill Data:
+                - truck_number
+            - Fill Data:
+                - trailer_number
+            - Access Decision:
+                - access: Granted
+        - Case:
+            - match: bobtail
+            - Fill Data:
+                - truck_number
+            - Access Decision:
+                - access: Granted
+        - Case:
+            - match: personal
+            - Access Decision:
+                - access: Denied
+
+  - name: "In Full Protocol Context"
+    description: "How Switch fits into a complete flow"
+    yaml: |
+      Protocol:
+        - Fill Data:
+            - vehicle_type
+        - Switch:
+            - On: vehicle_type
+            - Case:
+                - match: truck
+                - Access Decision:
+                    - access: Granted
+            - Case:
+                - match: visitor
+                - Access Decision:
+                    - access: Denied
+
+  - name: "Nested Switch"
+    description: "Multi-level branching with Switch inside Case"
+    yaml: |
+      Switch:
+        - On: vehicle_type
+        - Case:
+            - match: truck
+            - Fill Data:
+                - truck_number
+            - Switch:
+                - On: truck_number
+                - Case:
+                    - match: "ABC123"
+                    - Access Decision:
+                        - access: Granted
+                - Case:
+                    - match: "unknown"
+                    - Access Decision:
+                        - access: Denied
+
+# -----------------------------------------------------------------------------
+# COMMON MISTAKES
+# -----------------------------------------------------------------------------
+common_mistakes:
+  - mistake: "Referencing a data_field that hasn't been collected yet"
+    correction: "Always place Fill Data with the data_field before the Switch"
+    example_wrong: |
+      Protocol:
+        - Switch:
+            - On: vehicle_type  # Error: vehicle_type not collected!
+            - Case:
+                - match: truck
+    example_correct: |
+      Protocol:
+        - Fill Data:
+            - vehicle_type  # Collected first
+        - Switch:
+            - On: vehicle_type  # Now it's valid
+            - Case:
+                - match: truck
+
+  - mistake: "Using duplicate match values in Cases"
+    correction: "Each Case must have a unique match value"
+    example_wrong: |
+      Switch:
+        - On: vehicle_type
+        - Case:
+            - match: truck
+        - Case:
+            - match: truck  # Error: Duplicate!
+    example_correct: |
+      Switch:
+        - On: vehicle_type
+        - Case:
+            - match: truck
+        - Case:
+            - match: bobtail  # Unique value
+
+  - mistake: "Having only one Case child"
+    correction: "Switch needs at least 2 Cases to be meaningful"
+    example_wrong: |
+      Switch:
+        - On: vehicle_type
+        - Case:
+            - match: truck  # Only one case - pointless!
+    example_correct: |
+      Switch:
+        - On: vehicle_type
+        - Case:
+            - match: truck
+        - Case:
+            - match: other
+
+# -----------------------------------------------------------------------------
+# GENERATION HINTS
+# -----------------------------------------------------------------------------
+generation_hints:
+  use_when:
+    - "The user needs different behavior based on a collected value"
+    - "There are multiple distinct paths/scenarios to handle"
+    - "The user mentions 'depending on', 'based on', 'if/else'"
+    - "Different vehicle types or user types need different treatment"
+  
+  do_not_use_when:
+    - "There is only one path regardless of input"
+    - "The decision is binary (consider simpler patterns)"
+    - "No data has been collected to switch on"
+  
+  keywords:
+    - "depending on"
+    - "based on"
+    - "if the type is"
+    - "different for"
+    - "branch"
+    - "switch"
+    - "when X is Y"
+    - "for trucks... for visitors..."

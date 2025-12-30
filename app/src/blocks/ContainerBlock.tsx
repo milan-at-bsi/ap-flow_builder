@@ -37,10 +37,16 @@ export const ContainerBlock = memo(function ContainerBlock({
         height: h,
         background: 'rgba(59,130,246,0.85)',
         borderRadius: 10,
-        border: selected ? '3px solid #fff' : '2px solid rgba(255,255,255,0.3)',
+        border: data.isHovered 
+          ? '3px solid rgba(250, 204, 21, 0.9)' 
+          : selected 
+            ? '3px solid #fff' 
+            : '2px solid rgba(255,255,255,0.3)',
+        boxShadow: data.isHovered ? '0 0 12px rgba(250, 204, 21, 0.5)' : 'none',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
+        transition: 'border 0.15s ease, box-shadow 0.15s ease',
       }}
     >
       {/* Header */}

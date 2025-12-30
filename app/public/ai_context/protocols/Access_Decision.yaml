@@ -1,0 +1,293 @@
+# =============================================================================
+# AI CONTEXT: Access Decision Block
+# Workspace: Protocols
+# =============================================================================
+
+block_name: "Access Decision"
+block_type: leaf
+workspace: protocols
+
+# -----------------------------------------------------------------------------
+# CORE INTENT
+# -----------------------------------------------------------------------------
+intent: |
+  Terminal block that grants or denies access. Every Protocol flow should
+  end with at least one Access Decision to conclude the access control process.
+
+description: |
+  The Access Decision block is the terminal point of a protocol flow. It
+  represents the final determination of whether access should be granted
+  or denied based on all the collected data and conditional logic that
+  preceded it.
+  
+  Key behaviors:
+  - Terminal block - no other blocks should follow it in a branch
+  - Every protocol path must eventually reach an Access Decision
+  - Has exactly two valid outcomes: Granted or Denied
+  - In UI, displayed as the final node in a flow path
+  - Multiple Access Decisions may exist in a protocol (one per branch)
+  
+  The Access Decision is the culmination of the protocol's logic. All
+  Fill Data collection and Switch branching ultimately leads to one or
+  more Access Decision blocks that determine the access control outcome.
+
+# -----------------------------------------------------------------------------
+# SEMANTIC ROLE
+# -----------------------------------------------------------------------------
+semantic_role: decision
+
+# -----------------------------------------------------------------------------
+# FIELD DEFINITIONS
+# -----------------------------------------------------------------------------
+fields:
+  access:
+    intent: "Specifies whether access is granted or denied"
+    description: |
+      The access field determines the final outcome of this protocol path.
+      This value controls what happens at the physical access point
+      (gate opens, barrier lifts, etc.) or logical access point.
+    value_type: text
+    required: true
+    default_behavior: "Defaults to 'Denied' for security-first design"
+    valid_values:
+      - Granted: "Allow entry - gate opens, barrier lifts, access permitted"
+      - Denied: "Refuse entry - gate stays closed, access blocked"
+    examples:
+      - "Granted"
+      - "Denied"
+
+# -----------------------------------------------------------------------------
+# STRUCTURAL CONSTRAINTS
+# -----------------------------------------------------------------------------
+allowed_children: []  # Leaf block - no children
+
+required_children:
+  min: 0
+  max: 0
+  types: []
+
+allowed_parents:
+  - Protocol
+  - Case
+
+# -----------------------------------------------------------------------------
+# RESTRICTIONS & RULES
+# -----------------------------------------------------------------------------
+restrictions:
+  - "Access Decision is a terminal block - nothing should follow it in a branch"
+  - "Every flow path in a Protocol should eventually lead to an Access Decision"
+  - "Only 'Granted' or 'Denied' are valid values for the access field"
+  - "Access Decision cannot have children - it is a leaf block"
+  - "Every Case in a Switch should lead to an Access Decision"
+  - "Default to 'Denied' for security - only explicitly grant when criteria are met"
+
+# -----------------------------------------------------------------------------
+# RELATIONSHIPS
+# -----------------------------------------------------------------------------
+relationships:
+  requires: null  # Access Decision is self-contained
+  
+  pairs_with:
+    - Protocol  # Every Protocol needs at least one Access Decision
+    - Case      # Each Case branch typically ends with Access Decision
+  
+  typically_preceded_by:
+    - Fill Data  # Often follows final data collection
+    - Case       # Often at the end of a Case branch
+  
+  typically_followed_by: null  # Terminal block - nothing follows
+
+# -----------------------------------------------------------------------------
+# USAGE EXAMPLES
+# -----------------------------------------------------------------------------
+examples:
+  - name: "Grant Access"
+    description: "Allow entry to the facility"
+    yaml: |
+      Access Decision:
+        - access: Granted
+
+  - name: "Deny Access"
+    description: "Refuse entry to the facility"
+    yaml: |
+      Access Decision:
+        - access: Denied
+
+  - name: "After Data Collection"
+    description: "Grant access after collecting required information"
+    yaml: |
+      Protocol:
+        - Fill Data:
+            - vehicle_type
+        - Fill Data:
+            - truck_number
+        - Access Decision:
+            - access: Granted
+
+  - name: "In Switch Case"
+    description: "Different decisions for different branches"
+    yaml: |
+      Switch:
+        - On: vehicle_type
+        - Case:
+            - match: truck
+            - Access Decision:
+                - access: Granted
+        - Case:
+            - match: unauthorized
+            - Access Decision:
+                - access: Denied
+
+  - name: "Complete Protocol with Multiple Decisions"
+    description: "Full protocol showing multiple Access Decisions"
+    yaml: |
+      Protocol:
+        - Fill Data:
+            - vehicle_type
+            - required
+        - Switch:
+            - On: vehicle_type
+            - Case:
+                - match: truck
+                - Fill Data:
+                    - truck_number
+                    - required
+                - Access Decision:
+                    - access: Granted
+            - Case:
+                - match: visitor
+                - Fill Data:
+                    - visitor_name
+                - Access Decision:
+                    - access: Granted
+            - Case:
+                - match: unknown
+                - Access Decision:
+                    - access: Denied
+
+  - name: "Nested Decision Logic"
+    description: "Access Decision after nested Switch"
+    yaml: |
+      Case:
+        - match: truck
+        - Fill Data:
+            - has_appointment
+        - Switch:
+            - On: has_appointment
+            - Case:
+                - match: "yes"
+                - Access Decision:
+                    - access: Granted
+            - Case:
+                - match: "no"
+                - Access Decision:
+                    - access: Denied
+
+# -----------------------------------------------------------------------------
+# COMMON MISTAKES
+# -----------------------------------------------------------------------------
+common_mistakes:
+  - mistake: "Protocol path without Access Decision"
+    correction: "Every path through the protocol must end with Access Decision"
+    example_wrong: |
+      Protocol:
+        - Fill Data:
+            - vehicle_type
+        - Switch:
+            - On: vehicle_type
+            - Case:
+                - match: truck
+                - Fill Data:
+                    - truck_number
+                # Missing Access Decision!
+    example_correct: |
+      Protocol:
+        - Fill Data:
+            - vehicle_type
+        - Switch:
+            - On: vehicle_type
+            - Case:
+                - match: truck
+                - Fill Data:
+                    - truck_number
+                - Access Decision:
+                    - access: Granted
+
+  - mistake: "Invalid access value"
+    correction: "Only use 'Granted' or 'Denied' as values"
+    example_wrong: |
+      Access Decision:
+        - access: Yes  # Error: Invalid value!
+    example_correct: |
+      Access Decision:
+        - access: Granted
+
+  - mistake: "Blocks after Access Decision"
+    correction: "Access Decision is terminal - nothing should follow"
+    example_wrong: |
+      Case:
+        - match: truck
+        - Access Decision:
+            - access: Granted
+        - Fill Data:  # Error: Nothing should follow Access Decision!
+            - truck_number
+    example_correct: |
+      Case:
+        - match: truck
+        - Fill Data:
+            - truck_number
+        - Access Decision:
+            - access: Granted
+
+  - mistake: "Missing access field"
+    correction: "Access Decision must specify the access field"
+    example_wrong: |
+      Access Decision:  # Error: No access field!
+    example_correct: |
+      Access Decision:
+        - access: Granted
+
+# -----------------------------------------------------------------------------
+# GENERATION HINTS
+# -----------------------------------------------------------------------------
+generation_hints:
+  use_when:
+    - "Flow needs to conclude with a decision"
+    - "User specifies granting or denying access"
+    - "A branch of logic has reached its conclusion"
+    - "Protocol needs to determine final outcome"
+  
+  do_not_use_when:
+    - "More data collection is needed"
+    - "More branching logic is needed before deciding"
+    - "Already have an Access Decision at this path"
+  
+  keywords:
+    - "grant access"
+    - "deny access"
+    - "allow entry"
+    - "refuse entry"
+    - "decision"
+    - "permit"
+    - "approve"
+    - "reject"
+    - "authorized"
+    - "unauthorized"
+
+# -----------------------------------------------------------------------------
+# SECURITY NOTES
+# -----------------------------------------------------------------------------
+security_notes: |
+  Security best practices for Access Decisions:
+  
+  1. Default to Denied: When in doubt, deny access. Only explicitly grant
+     access when all required criteria are verified.
+  
+  2. Every Path: Ensure every possible path through the protocol leads to
+     an Access Decision. Unhandled cases should default to Denied.
+  
+  3. Audit Trail: Access Decisions are typically logged for security
+     auditing. Consider what data collection precedes the decision.
+  
+  4. Fail Secure: If data collection fails or times out, the default
+     behavior should lead to a Denied decision.

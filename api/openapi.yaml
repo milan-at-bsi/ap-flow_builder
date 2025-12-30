@@ -18,6 +18,8 @@ servers:
 tags:
   - name: Flows
     description: Flow management operations
+  - name: AI
+    description: AI Assistant chat operations
   - name: Health
     description: Health check endpoint
 
@@ -366,6 +368,279 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /api/flows/{id}/flow.yaml:
+    get:
+      tags:
+        - Flows
+      summary: Get raw flow YAML by ID
+      description: Retrieve the raw flow YAML content as text/yaml
+      operationId: getRawFlowYaml
+      parameters:
+        - name: id
+          in: path
+          description: Flow ID
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+          example: 1
+      responses:
+        '200':
+          description: Raw flow YAML content
+          content:
+            text/yaml:
+              schema:
+                type: string
+              example: |
+                diagram:
+                  Protocol:
+                    - Fill Data:
+                        - data_field: vehicle_type
+        '400':
+          description: Invalid flow ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Flow not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/flows/{id}/planspace.yaml:
+    get:
+      tags:
+        - Flows
+      summary: Get raw PlanSpace YAML by ID
+      description: Retrieve the raw PlanSpace YAML content as text/yaml
+      operationId: getRawPlanSpaceYaml
+      parameters:
+        - name: id
+          in: path
+          description: Flow ID
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+          example: 1
+      responses:
+        '200':
+          description: Raw PlanSpace YAML content
+          content:
+            text/yaml:
+              schema:
+                type: string
+              example: |
+                PlanSpace:
+                  Actions:
+                    - Action:
+                        name: fill_vehicle_type
+                        cost: 1
+        '400':
+          description: Invalid flow ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Flow not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/flows/external/{externalId}/flow.yaml:
+    get:
+      tags:
+        - Flows
+      summary: Get raw flow YAML by external ID
+      description: Retrieve the raw flow YAML content by external ID as text/yaml
+      operationId: getRawFlowYamlByExternalId
+      parameters:
+        - name: externalId
+          in: path
+          description: External ID of the flow
+          required: true
+          schema:
+            type: string
+          example: vehicle-access-v1
+      responses:
+        '200':
+          description: Raw flow YAML content
+          content:
+            text/yaml:
+              schema:
+                type: string
+        '400':
+          description: External ID is required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Flow not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/flows/external/{externalId}/planspace.yaml:
+    get:
+      tags:
+        - Flows
+      summary: Get raw PlanSpace YAML by external ID
+      description: Retrieve the raw PlanSpace YAML content by external ID as text/yaml
+      operationId: getRawPlanSpaceYamlByExternalId
+      parameters:
+        - name: externalId
+          in: path
+          description: External ID of the flow
+          required: true
+          schema:
+            type: string
+          example: vehicle-access-v1
+      responses:
+        '200':
+          description: Raw PlanSpace YAML content
+          content:
+            text/yaml:
+              schema:
+                type: string
+        '400':
+          description: External ID is required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Flow not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/ai/status:
+    get:
+      tags:
+        - AI
+      summary: Check AI configuration status
+      description: Check if the AI assistant is configured and ready
+      operationId: getAIStatus
+      responses:
+        '200':
+          description: AI status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIStatus'
+              example:
+                configured: true
+                provider: anthropic
+                model: claude-opus-4-5-20251101
+
+  /api/ai/chat:
+    post:
+      tags:
+        - AI
+      summary: Chat with AI assistant
+      description: Send a message to the AI assistant and receive a response (non-streaming)
+      operationId: aiChat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+            example:
+              workspace: actions
+              message: Create a flow to collect truck number
+              history: []
+      responses:
+        '200':
+          description: AI response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '400':
+          description: Bad request (missing workspace or message)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: AI request failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/ai/chat/stream:
+    post:
+      tags:
+        - AI
+      summary: Stream chat with AI assistant
+      description: |
+        Send a message to the AI assistant and receive a streaming response via Server-Sent Events (SSE).
+        
+        Events:
+        - `chunk`: Partial response text
+        - `done`: Final response with full content and extracted YAML
+        - `error`: Error message
+      operationId: aiChatStream
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: Server-Sent Events stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: SSE stream with chunk, done, and error events
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: AI request failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
 components:
   schemas:
     Flow:
@@ -496,3 +771,81 @@ components:
           type: string
           description: Error message
           example: Something went wrong
+
+    AIStatus:
+      type: object
+      description: AI assistant configuration status
+      required:
+        - configured
+        - provider
+        - model
+      properties:
+        configured:
+          type: boolean
+          description: Whether the AI assistant is properly configured
+          example: true
+        provider:
+          type: string
+          description: AI provider name
+          example: anthropic
+        model:
+          type: string
+          description: AI model being used
+          example: claude-opus-4-5-20251101
+
+    ChatRequest:
+      type: object
+      description: Request body for AI chat
+      required:
+        - workspace
+        - message
+      properties:
+        workspace:
+          type: string
+          enum: [actions, protocols]
+          description: The workspace context for the AI (affects system prompt)
+          example: actions
+        message:
+          type: string
+          description: User message to the AI
+          example: Create a flow to collect truck number
+        history:
+          type: array
+          description: Previous conversation history
+          items:
+            $ref: '#/components/schemas/ChatMessage'
+          default: []
+        currentFlowYaml:
+          type: string
+          nullable: true
+          description: Current flow YAML to provide context
+
+    ChatMessage:
+      type: object
+      description: A chat message in the conversation history
+      required:
+        - role
+        - content
+      properties:
+        role:
+          type: string
+          enum: [user, assistant]
+          description: Who sent the message
+        content:
+          type: string
+          description: Message content
+
+    ChatResponse:
+      type: object
+      description: Response from AI chat
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          description: Full AI response text
+          example: Here's a flow to collect truck number...
+        yaml:
+          type: string
+          nullable: true
+          description: Extracted YAML from the response (if present)

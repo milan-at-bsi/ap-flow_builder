@@ -1,0 +1,408 @@
+# =============================================================================
+# AI CONTEXT: Goal State Block
+# Workspace: Actions
+# =============================================================================
+
+block_name: "Goal State"
+block_type: leaf
+workspace: actions
+
+# -----------------------------------------------------------------------------
+# CORE INTENT
+# -----------------------------------------------------------------------------
+intent: |
+  Signals the end of a flow by defining the goal condition that marks completion.
+  When the system state satisfies a Goal State expression, the flow terminates.
+  Goal States define "what does success (or acceptable termination) look like?"
+
+description: |
+  The Goal State block is a direct child of the Action block that defines when
+  the workflow should be considered complete. It contains an expression that
+  is evaluated against the current system state.
+  
+  Key behaviors:
+  - Defines the termination condition for the Action flow
+  - Expression is a boolean condition evaluated against state variables
+  - Flow ends when ANY Goal State expression evaluates to True (OR logic)
+  - Can represent success (task accomplished) or acceptable failure (timeout, cancel)
+  
+  **POST-EFFECT LINKAGE (CRITICAL):**
+  Every Goal State expression MUST have a corresponding Post-Effect in at least
+  one Card that can set the state to satisfy the goal. The Goal State defines
+  WHAT we're trying to achieve; the Card Post-Effects define HOW we achieve it.
+  
+  Example linkage:
+  - Goal State: `expression: state.truck_number_filled == True`
+  - Card Post-Effect: `post_effect: state.truck_number_filled = True`
+  
+  Without a matching Post-Effect, the Goal State is UNREACHABLE and the flow
+  will never terminate through that goal!
+  
+  **Multiple Goal States:**
+  An Action can have one or more Goal State blocks. When generating PlanSpace,
+  multiple Goal States are combined using OR logic:
+  - Goal 1: state.truck_number_filled == True (success)
+  - Goal 2: state.flow_timeout == True (timeout)
+  - Goal 3: state.user_cancelled == True (cancellation)
+  → Combined: (Goal 1) OR (Goal 2) OR (Goal 3)
+  
+  **Types of Goal States:**
+  1. **Success Goals**: Task completed successfully (most common)
+     - e.g., `state.truck_number_filled == True`
+     - MUST have a Card with: `post_effect: state.truck_number_filled = True`
+  2. **Failure Goals**: Acceptable termination due to error/timeout
+     - e.g., `state.max_retries_exceeded == True`
+     - Set by Policy/on_error handlers or retry logic
+  3. **Cancellation Goals**: User-initiated flow termination
+     - e.g., `state.user_cancelled == True`
+     - Set by cancel button handlers or timeout policies
+
+# -----------------------------------------------------------------------------
+# SEMANTIC ROLE
+# -----------------------------------------------------------------------------
+semantic_role: decision
+
+# -----------------------------------------------------------------------------
+# FIELD DEFINITIONS
+# -----------------------------------------------------------------------------
+fields:
+  goal_state:
+    intent: "The boolean condition that marks flow completion"
+    description: |
+      A boolean expression evaluated against the current state. When this
+      expression evaluates to True, the Goal State is satisfied and the
+      flow can terminate.
+      
+      Format: `state.<variable_name> == <value>`
+      
+      The expression typically references state variables that are set by
+      Card Post-Effects during the flow execution.
+    value_type: expression
+    required: true
+    default_value: "[field]_filled == True"
+    default_behavior: |
+      Must be explicitly set. If no expression is provided, the Goal State
+      cannot be evaluated and the flow may never terminate properly.
+    examples:
+      - "state.truck_number_filled == True"
+      - "state.all_data_collected == True"
+      - "state.flow_timeout == True"
+      - "state.user_cancelled == True"
+      - "state.max_retries_exceeded == True"
+
+# -----------------------------------------------------------------------------
+# STRUCTURAL CONSTRAINTS
+# -----------------------------------------------------------------------------
+allowed_children: []  # Leaf-like - contains only the expression field
+
+required_children:
+  min: 0
+  max: 0
+  types: []
+
+allowed_parents:
+  - Action  # Goal State is a direct child of Action
+
+# -----------------------------------------------------------------------------
+# RESTRICTIONS & RULES
+# -----------------------------------------------------------------------------
+restrictions:
+  - "Goal State must be a direct child of the Action block"
+  - "The expression must reference state variables that are set within the flow"
+  - "Every Action should have at least one Goal State to define when the flow ends"
+  - "Multiple Goal States are combined with OR logic in PlanSpace generation"
+  - "CRITICAL: Every Goal State expression MUST have a matching Post-Effect in at least one Card"
+  - "Consider including both success and failure Goal States for robust flows"
+
+# -----------------------------------------------------------------------------
+# POST-EFFECT LINKAGE (CRITICAL)
+# -----------------------------------------------------------------------------
+post_effect_linkage: |
+  **Every Goal State MUST be reachable through Card Post-Effects!**
+  
+  The Goal State defines the termination condition. Card Post-Effects are
+  the ONLY mechanism that can satisfy that condition. If there's no Card
+  with a Post-Effect that sets the state, the Goal is UNREACHABLE.
+  
+  **Linkage Pattern:**
+  
+  Goal State Expression          →  Required Card Post-Effect
+  ─────────────────────────────────────────────────────────────
+  state.truck_number_filled == True  →  state.truck_number_filled = True
+  state.all_data_collected == True   →  state.all_data_collected = True
+  state.flow_timeout == True         →  state.flow_timeout = True (set by Timeout Policy)
+  state.user_cancelled == True       →  state.user_cancelled = True (set by cancel handler)
+  
+  **Example - Complete Goal → Post-Effect Linkage:**
+  
+  ```yaml
+  Action:
+    - action: collect_truck_number
+    - Goal State:
+        - expression: state.truck_number_filled == True  # ← GOAL
+    - Card:
+        - card_id: collect_truck_v1
+        - post_effects:
+            - Post Effect:
+                - post_effect: state.truck_number_filled = True  # ← ACHIEVES GOAL
+  ```
+  
+  **Validation Rule:**
+  When creating an Action, verify that for each Goal State expression:
+  1. At least one Card has a Post-Effect that sets that state to True
+  2. OR a Policy/handler can set that state (for timeout/cancel goals)
+
+# -----------------------------------------------------------------------------
+# RELATIONSHIPS
+# -----------------------------------------------------------------------------
+relationships:
+  requires:
+    - Action      # Must be inside an Action
+    - state       # References state variables declared in State List
+    - Post Effect # Goal conditions are typically set by Post-Effects
+  
+  pairs_with:
+    - Card        # Cards work toward achieving the Goal State
+    - State List  # State variables referenced in the expression
+  
+  typically_preceded_by:
+    - Card        # Cards define the steps that work toward the goal
+  
+  typically_followed_by: null  # Goal State is typically at the end conceptually
+
+# -----------------------------------------------------------------------------
+# USAGE EXAMPLES
+# -----------------------------------------------------------------------------
+examples:
+  - name: "Simple Success Goal"
+    description: "Basic goal for data collection completion"
+    yaml: |
+      Goal State:
+        - goal_state: state.truck_number_filled == True
+
+  - name: "Multiple Data Collection Goal"
+    description: "Goal requiring multiple fields to be collected"
+    yaml: |
+      Goal State:
+        - goal_state: state.all_data_collected == True
+
+  - name: "Timeout Failure Goal"
+    description: "Goal for acceptable termination due to timeout"
+    yaml: |
+      Goal State:
+        - goal_state: state.flow_timeout == True
+
+  - name: "User Cancellation Goal"
+    description: "Goal when user chooses to cancel the flow"
+    yaml: |
+      Goal State:
+        - goal_state: state.user_cancelled == True
+
+  - name: "Action with Multiple Goal States (OR Logic)"
+    description: "Complete Action showing success, timeout, and cancel goals"
+    yaml: |
+      Action:
+        - action: collect_truck_number
+        - Goal State:
+            - goal_state: state.truck_number_filled == True
+        - Goal State:
+            - goal_state: state.flow_timeout == True
+        - Goal State:
+            - goal_state: state.user_cancelled == True
+        - Card:
+            - card_id: collect_truck_num_v1
+            - State List:
+                - state:
+                    - truck_number_filled: False
+            - delivery:
+                - intent:
+                    - intent: collect
+                - interaction:
+                    - interaction_type: input.text
+                    - field:
+                        - field: truck_number
+            - Pre-Conditions List:
+                - Pre-Condition:
+                    - pre_condition: state.truck_number_filled == False
+            - post_effects:
+                - Post Effect:
+                    - post_effect: state.truck_number_filled = True
+
+  - name: "Multi-Step Flow with Success Goal"
+    description: "Action collecting multiple fields with a composite goal"
+    yaml: |
+      Action:
+        - action: collect_vehicle_info
+        - Goal State:
+            - goal_state: state.all_vehicle_info_collected == True
+        - Goal State:
+            - goal_state: state.flow_timeout == True
+        - Card:
+            - card_id: collect_truck_num_v1
+            - Pre-Conditions List:
+                - Pre-Condition:
+                    - pre_condition: state.truck_number_filled == False
+            - post_effects:
+                - Post Effect:
+                    - post_effect: state.truck_number_filled = True
+        - Card:
+            - card_id: collect_trailer_num_v1
+            - Pre-Conditions List:
+                - Pre-Condition:
+                    - pre_condition: state.truck_number_filled == True
+                - Pre-Condition:
+                    - pre_condition: state.trailer_number_filled == False
+            - post_effects:
+                - Post Effect:
+                    - post_effect: state.trailer_number_filled = True
+                - Post Effect:
+                    - post_effect: state.all_vehicle_info_collected = True
+
+  - name: "Retry Flow with Max Retries Goal"
+    description: "Goal that terminates after maximum retry attempts"
+    yaml: |
+      Action:
+        - action: collect_with_retry
+        - Goal State:
+            - goal_state: state.data_collected == True
+        - Goal State:
+            - goal_state: state.max_retries_exceeded == True
+        - Card:
+            - card_id: collect_data_v1
+            - Pre-Conditions List:
+                - Pre-Condition:
+                    - pre_condition: state.data_collected == False
+                - Pre-Condition:
+                    - pre_condition: state.max_retries_exceeded == False
+            - post_effects:
+                - Post Effect:
+                    - post_effect: state.data_collected = True
+
+# -----------------------------------------------------------------------------
+# COMMON MISTAKES
+# -----------------------------------------------------------------------------
+common_mistakes:
+  - mistake: "Forgetting to add a Goal State to an Action"
+    correction: "Every Action needs at least one Goal State to define completion"
+    example_wrong: |
+      Action:
+        - action: collect_data
+        - Card:
+            - card_id: collect_truck_v1
+            # ... card content
+        # Missing Goal State - flow never knows when to end!
+    example_correct: |
+      Action:
+        - action: collect_data
+        - Goal State:
+            - goal_state: state.truck_number_filled == True
+        - Card:
+            - card_id: collect_truck_v1
+            # ... card content
+
+  - mistake: "Only having a success Goal State without failure handling"
+    correction: "Include timeout/cancellation Goal States for robust flows"
+    example_wrong: |
+      Action:
+        - action: collect_data
+        - Goal State:
+            - goal_state: state.data_collected == True  # Only success
+        - Card:
+            # ... card content
+    example_correct: |
+      Action:
+        - action: collect_data
+        - Goal State:
+            - goal_state: state.data_collected == True
+        - Goal State:
+            - goal_state: state.flow_timeout == True
+        - Goal State:
+            - goal_state: state.user_cancelled == True
+        - Card:
+            # ... card content
+
+  - mistake: "Using unreachable Goal State expression"
+    correction: "Ensure Post-Effects in Cards can set the state to reach the Goal"
+    example_wrong: |
+      Action:
+        - action: collect_data
+        - Goal State:
+            - goal_state: state.something_undefined == True  # Never set!
+        - Card:
+            - card_id: collect_v1
+            - post_effects:
+                - Post Effect:
+                    - post_effect: state.data_collected = True
+    example_correct: |
+      Action:
+        - action: collect_data
+        - Goal State:
+            - goal_state: state.data_collected == True  # Matches Post-Effect
+        - Card:
+            - card_id: collect_v1
+            - post_effects:
+                - Post Effect:
+                    - post_effect: state.data_collected = True
+
+  - mistake: "Placing Goal State inside a Card instead of in Action"
+    correction: "Goal State must be a direct child of Action, not inside Cards"
+    example_wrong: |
+      Action:
+        - action: collect_data
+        - Card:
+            - card_id: collect_v1
+            - Goal State:  # Wrong: Inside Card!
+                - goal_state: state.done == True
+    example_correct: |
+      Action:
+        - action: collect_data
+        - Goal State:  # Correct: Direct child of Action
+            - goal_state: state.done == True
+        - Card:
+            - card_id: collect_v1
+
+# -----------------------------------------------------------------------------
+# GENERATION HINTS
+# -----------------------------------------------------------------------------
+generation_hints:
+  use_when:
+    - "Defining when an Action flow should end"
+    - "User mentions 'goal', 'completion', 'success', 'done'"
+    - "Need to handle timeout or cancellation scenarios"
+    - "Converting flow to PlanSpace format"
+  
+  do_not_use_when:
+    - "Inside a Card (Goal State is an Action-level block)"
+    - "In the Protocols workspace (use Access Decision instead)"
+  
+  keywords:
+    - "goal"
+    - "complete"
+    - "done"
+    - "finished"
+    - "success"
+    - "timeout"
+    - "cancel"
+    - "terminate"
+    - "end flow"
+
+# -----------------------------------------------------------------------------
+# PLANSPACE GENERATION NOTES
+# -----------------------------------------------------------------------------
+planspace_notes: |
+  When generating PlanSpace from an Action with Goal States:
+  
+  1. **Single Goal State:**
+     GoalState:
+       expression: state.truck_number_filled == True
+  
+  2. **Multiple Goal States (OR combination):**
+     GoalState:
+       expression: |
+         (state.truck_number_filled == True) OR
+         (state.flow_timeout == True) OR
+         (state.user_cancelled == True)
+  
+  The PlanSpace planner will consider the flow complete when ANY of the
+  Goal State expressions evaluate to True, enabling graceful termination
+  for both success and failure scenarios.

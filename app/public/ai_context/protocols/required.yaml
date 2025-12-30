@@ -1,0 +1,73 @@
+# =============================================================================
+# AI CONTEXT: required Block
+# Workspace: Protocols
+# =============================================================================
+# TODO: Fill in detailed context using _EXAMPLE_BLOCK.yaml as reference
+# =============================================================================
+
+block_name: "required"
+block_type: leaf
+workspace: protocols
+
+intent: |
+  Constraint block that marks a data field as mandatory. When placed inside
+  a Fill Data container alongside a data_field, it indicates that the field
+  must be filled before proceeding.
+
+description: |
+  TODO: Add detailed description
+
+semantic_role: constraint
+
+fields:
+  value:
+    intent: "Specifies whether the field is required"
+    value_type: boolean
+    required: true
+    default_behavior: "Defaults to 'true'"
+    valid_values:
+      - "true": "Field must be filled"
+      - "false": "Field is optional"
+    examples:
+      - "true"
+      - "false"
+
+allowed_children: null  # Leaf block
+
+allowed_parents:
+  - Fill Data
+
+restrictions:
+  - "Must be placed inside a Fill Data container alongside a data_field"
+  - "Only meaningful when combined with a data_field"
+
+relationships:
+  requires:
+    - Fill Data
+    - data_field
+  pairs_with:
+    - vehicle_type
+    - truck_number
+    - trailer_number
+    - license_plate
+    - cdl_number
+  typically_preceded_by: null
+  typically_followed_by: null
+
+examples:
+  - name: "Required field"
+    yaml: |
+      Fill Data:
+        - truck_number
+        - required:
+            - value: "true"
+
+generation_hints:
+  use_when:
+    - "A field must be filled before proceeding"
+    - "User specifies mandatory fields"
+  keywords:
+    - "required"
+    - "mandatory"
+    - "must provide"
+    - "cannot skip"

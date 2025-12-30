@@ -1,0 +1,156 @@
+# =============================================================================
+# WORKSPACE-LEVEL AI CONTEXT: Actions
+# =============================================================================
+# This file provides high-level context about the Actions workspace.
+# AI should read this first to understand the overall purpose and patterns
+# before looking at individual block context files.
+# =============================================================================
+
+workspace_name: Actions
+
+# -----------------------------------------------------------------------------
+# PURPOSE
+# -----------------------------------------------------------------------------
+purpose: |
+  The Actions workspace is designed for building detailed action definitions
+  that specify how to collect individual pieces of data from users. Actions
+  define the interaction patterns, validation rules, and state management
+  for data collection tasks.
+
+domain: "Data collection, user interaction, form definition"
+
+# -----------------------------------------------------------------------------
+# TYPICAL USE CASES
+# -----------------------------------------------------------------------------
+use_cases:
+  - "Defining how to collect a specific piece of information"
+  - "Specifying interaction types (text input, acknowledgment)"
+  - "Setting up pre-conditions and post-effects for actions"
+  - "Configuring validation and error handling"
+  - "Creating reusable action templates for common data collection patterns"
+
+# -----------------------------------------------------------------------------
+# FLOW PATTERNS
+# -----------------------------------------------------------------------------
+typical_flow_structure: |
+  Action
+    └── Card
+        └── delivery
+            └── interaction
+                └── intent
+                └── field
+                └── on_success
+                └── on_error
+        └── Pre-Condition List
+            └── Pre-Conditions List
+                └── Pre-Condition
+            └── post_effects
+                └── Post Effect
+
+flow_patterns:
+  - name: "Simple Data Collection"
+    description: "Basic action to collect a single field"
+    pattern: |
+      Action → Card → delivery → interaction → field + intent
+
+  - name: "Validated Data Collection"
+    description: "Action with pre-conditions and post-effects"
+    pattern: |
+      Action → Card → delivery + Policy → Pre-Conditions List + post_effects
+
+# -----------------------------------------------------------------------------
+# KEY CONCEPTS
+# -----------------------------------------------------------------------------
+key_concepts:
+  actions: |
+    An Action represents a complete data collection task. It contains the
+    definition of what to collect, how to interact with the user, and
+    what effects the collection has on the system state.
+  
+  cards: |
+    Cards are groupings within an Action that organize related content.
+    Each card can have its own delivery mechanism and policies.
+  
+  policies: |
+    Policies define when an action can be executed (Pre-Conditions List) and
+    what happens after it executes (post_effects). These enable conditional
+    logic and state management.
+
+# -----------------------------------------------------------------------------
+# BLOCK INVENTORY
+# -----------------------------------------------------------------------------
+blocks:
+  containers:
+    - name: Action
+      role: "Root container for a data collection action"
+    - name: Card
+      role: "Groups related content within an action"
+    - name: delivery
+      role: "Defines how content is delivered to the user"
+    - name: interaction
+      role: "Specifies the interaction type"
+    - name: Policy
+      role: "Contains Pre-Conditions List and post_effects"
+    - name: Pre-Conditions List
+      role: "Groups conditions that must be met"
+    - name: post_effects
+      role: "Groups effects that occur after execution"
+
+  leaves:
+    - name: intent
+      role: "Specifies the intent (collect, acknowledge)"
+    - name: field
+      role: "Defines the data field to collect"
+    - name: on_success
+      role: "Defines success handler"
+    - name: on_error
+      role: "Defines error handler"
+    - name: Pre-Condition
+      role: "Individual pre-condition expression"
+    - name: Post Effect
+      role: "Individual post-effect expression"
+    - name: Timeout
+      role: "Timeout configuration"
+
+# -----------------------------------------------------------------------------
+# GENERATION RULES
+# -----------------------------------------------------------------------------
+generation_rules:
+  - "Every Action should have at least one Card"
+  - "Cards typically contain a delivery container"
+  - "Fields should be defined with label and prompt"
+  - "Policies are optional but recommended for state management"
+  - "Pre-conditions check state before action execution"
+  - "Post-effects update state after successful execution"
+
+# -----------------------------------------------------------------------------
+# EXAMPLE COMPLETE ACTION
+# -----------------------------------------------------------------------------
+example_flow:
+  description: "A complete action for collecting truck number"
+  yaml: |
+    diagram:
+      Action:
+        - action: collect_truck_number
+        - Card:
+            - card_id: truck_info
+            - delivery:
+                - interaction:
+                    - interaction_type: input.text
+                    - intent:
+                        - intent: collect
+                    - field:
+                        - field: truck_number
+                        - label: Truck Number
+                        - prompt: Please enter your truck number
+                    - on_success:
+                        - on_success: "{ truck_number_filled: true }"
+                    - on_error:
+                        - on_error: "{ truck_number_filled: false }"
+            - Policy:
+                - Pre-Conditions List:
+                    - Pre-Condition:
+                        - pre_condition: state.truck_number_filled == False
+                - post_effects:
+                    - Post Effect:
+                        - post_effect: state.truck_number_filled = True

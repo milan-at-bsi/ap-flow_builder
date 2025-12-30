@@ -1,0 +1,353 @@
+# =============================================================================
+# AI CONTEXT: Card Block
+# Workspace: Actions
+# =============================================================================
+
+block_name: "Card"
+block_type: container
+workspace: actions
+
+# -----------------------------------------------------------------------------
+# CORE INTENT
+# -----------------------------------------------------------------------------
+intent: |
+  Represents a single interaction within an Action step. Cards define the 
+  specific user interaction, such as prompting for input (e.g., truck number)
+  or sending an acknowledgement (e.g., confirming data received). Each Card
+  encapsulates delivery content, policy rules, pre-conditions and post-effects.
+
+description: |
+  A Card is a child of an Action and represents one discrete interaction unit.
+  Cards are displayed side-by-side (horizontal layout) when multiple Cards
+  exist within the same Action, allowing visual comparison of different 
+  interaction variants or versions.
+  
+  Key behaviors:
+  - Each Card has a unique `card_id` for identification and versioning
+  - Cards contain a `delivery` block that defines what is presented to the user
+  - Cards contain a `Policy` block for timeout and retry configurations
+  - Cards have `Pre-Condition` and `Post Effect` blocks for state management
+  - Cards have states, such as timeouts, retries, errors, and field-filled tracking.
+  - A `State List` block can be added for easy tracking of related card states.
+  - Multiple Cards in an Action represent different variants or sequential interactions
+
+  Common Card purposes:
+  - Collecting user input (text entry, selection)
+  - Sending acknowledgements or confirmations
+  - Displaying instructions to the user
+  - Handling errors or retries
+
+# -----------------------------------------------------------------------------
+# SEMANTIC ROLE
+# -----------------------------------------------------------------------------
+semantic_role: grouping
+
+# -----------------------------------------------------------------------------
+# FIELD DEFINITIONS
+# -----------------------------------------------------------------------------
+fields:
+  card_id:
+    intent: "Unique identifier for this card within the action"
+    description: |
+      The card_id provides a unique name for this Card, often including
+      version information (e.g., collect_truck_num_v1, greet_visitor_v2).
+      This ID is used for tracking, logging, and potentially for A/B testing
+      different card variants.
+    value_type: text
+    required: true
+    default_behavior: |
+      If left empty, the Card cannot be properly tracked or referenced.
+      Always provide a descriptive, unique card_id.
+    examples:
+      - "collect_truck_num_v1"
+      - "acknowledge_receipt"
+      - "greet_driver_v2"
+      - "error_retry_prompt"
+
+# -----------------------------------------------------------------------------
+# STRUCTURAL CONSTRAINTS
+# -----------------------------------------------------------------------------
+allowed_children:
+  - delivery
+  - Policy
+  - Pre-Condition
+  - Post Effect
+  - State List
+
+required_children:
+  min: 1
+  max: null
+  types:
+    - delivery       # Should have at least a delivery for content
+    - Pre-Condition  # Should have pre-condition for state checking
+    - Post Effect    # Should have post-effect for state updates
+
+allowed_parents:
+  - Action  # Cards can only exist inside Actions
+
+# -----------------------------------------------------------------------------
+# RESTRICTIONS & RULES
+# -----------------------------------------------------------------------------
+restrictions:
+  - "Card blocks can ONLY exist as direct children of an Action"
+  - "Each Card must have a unique card_id within the same Action"
+  - "Every Card should have at least one Pre-Condition to define when it can execute"
+  - "Every Card should have at least one Post Effect to update state after execution"
+  - "Cards should contain a delivery block to define user interaction content"
+  - "Policy block is recommended for timeout and retry configurations"
+  - "State List block is recommended for documenting related system states"
+
+# -----------------------------------------------------------------------------
+# RELATIONSHIPS
+# -----------------------------------------------------------------------------
+relationships:
+  requires:
+    - Action  # Card must have an Action parent
+  
+  pairs_with:
+    - delivery       # For interaction content
+    - Policy         # For timeout/retry rules
+    - Pre-Condition  # For execution conditions
+    - Post Effect    # For state updates
+    - State List     # For state documentation
+  
+  typically_preceded_by: null  # Cards are inside Actions, not sequential
+  
+  typically_followed_by: null  # Cards are peers, not sequential
+
+# -----------------------------------------------------------------------------
+# USAGE EXAMPLES
+# -----------------------------------------------------------------------------
+examples:
+  - name: "Simple Data Collection Card"
+    description: "A Card that collects truck number from the driver"
+    yaml: |
+      Card:
+        - card_id: collect_truck_num_v1
+        - delivery:
+            - intent:
+                - intent: collect
+            - interaction:
+                - interaction_type: input.text
+                - field:
+                    - field: truck_number
+                    - label: Truck Number
+                    - prompt: Please enter your truck number
+        - Pre-Condition:
+            - pre_condition: state.truck_number_filled == False
+        - Post Effect:
+            - post_effect: state.truck_number_filled = True
+
+  - name: "Card with Full Policy"
+    description: "A Card with timeout and complete state management"
+    yaml: |
+      Card:
+        - card_id: collect_truck_num_v1
+        - delivery:
+            - intent:
+                - intent: collect
+            - interaction:
+                - interaction_type: input.text
+                - field:
+                    - field: truck_number
+                    - label: Truck Number
+                    - prompt: Please enter your TRUCK number
+                - on_success:
+                    - on_success: "{ truck_number_filled: true }"
+                - on_error:
+                    - on_error: "{ truck_number_filled: false }"
+        - Policy:
+            - Timeout:
+                - timeout_sec: "32"
+        - Pre-Condition:
+            - pre_condition: state.truck_number_filled == False
+        - Post Effect:
+            - post_effect: state.truck_number_filled = True
+
+  - name: "Acknowledgement Card"
+    description: "A Card that sends an acknowledgement to the user"
+    yaml: |
+      Card:
+        - card_id: acknowledge_receipt
+        - delivery:
+            - intent:
+                - intent: acknowledge
+            - interaction:
+                - interaction_type: acknowledge
+        - Pre-Condition:
+            - pre_condition: state.truck_number_filled == True
+        - Post Effect:
+            - post_effect: state.acknowledged = True
+
+  - name: "Card with State List"
+    description: "A Card with documented state references"
+    yaml: |
+      Card:
+        - card_id: collect_truck_num_v1
+        - State List:
+            - state:
+                - name: truck_number_filled
+            - state:
+                - name: collect_truck_num_v1_timeout
+            - state:
+                - name: collect_truck_num_v1_maxretries
+        - delivery:
+            - intent:
+                - intent: collect
+            - interaction:
+                - interaction_type: input.text
+                - field:
+                    - field: truck_number
+                    - label: Truck Number
+                    - prompt: Enter truck number
+        - Pre-Condition:
+            - pre_condition: state.truck_number_filled == False
+        - Post Effect:
+            - post_effect: state.truck_number_filled = True
+
+  - name: "In Action Context"
+    description: "How Card fits inside an Action"
+    yaml: |
+      Action:
+        - action: fill_truck_number
+        - Card:
+            - card_id: collect_truck_num_v1
+            - delivery:
+                - intent:
+                    - intent: collect
+                - interaction:
+                    - interaction_type: input.text
+                    - field:
+                        - field: truck_number
+                        - label: Truck Number
+                        - prompt: Please enter your truck number
+            - Policy:
+                - Timeout:
+                    - timeout_sec: "30"
+            - Pre-Condition:
+                - pre_condition: state.truck_number_filled == False
+            - Post Effect:
+                - post_effect: state.truck_number_filled = True
+
+# -----------------------------------------------------------------------------
+# COMMON MISTAKES
+# -----------------------------------------------------------------------------
+common_mistakes:
+  - mistake: "Placing Card outside of an Action"
+    correction: "Card blocks must always be direct children of an Action"
+    example_wrong: |
+      # Wrong: Card at root level
+      Card:
+        - card_id: my_card
+        - delivery: ...
+    example_correct: |
+      Action:
+        - action: my_action
+        - Card:  # Correct: Inside Action
+            - card_id: my_card
+            - delivery: ...
+
+  - mistake: "Missing Pre-Condition"
+    correction: "Every Card should have a Pre-Condition to define when it can execute"
+    example_wrong: |
+      Card:
+        - card_id: collect_data
+        - delivery: ...
+        - Post Effect:
+            - post_effect: state.data_filled = True
+        # Missing Pre-Condition!
+    example_correct: |
+      Card:
+        - card_id: collect_data
+        - delivery: ...
+        - Pre-Condition:
+            - pre_condition: state.data_filled == False
+        - Post Effect:
+            - post_effect: state.data_filled = True
+
+  - mistake: "Missing Post Effect"
+    correction: "Every Card should have a Post Effect to update state after execution"
+    example_wrong: |
+      Card:
+        - card_id: collect_data
+        - delivery: ...
+        - Pre-Condition:
+            - pre_condition: state.data_filled == False
+        # Missing Post Effect!
+    example_correct: |
+      Card:
+        - card_id: collect_data
+        - delivery: ...
+        - Pre-Condition:
+            - pre_condition: state.data_filled == False
+        - Post Effect:
+            - post_effect: state.data_filled = True
+
+  - mistake: "Duplicate card_id values in same Action"
+    correction: "Each Card must have a unique card_id"
+    example_wrong: |
+      Action:
+        - action: my_action
+        - Card:
+            - card_id: my_card
+        - Card:
+            - card_id: my_card  # Error: Duplicate!
+    example_correct: |
+      Action:
+        - action: my_action
+        - Card:
+            - card_id: collect_v1
+        - Card:
+            - card_id: collect_v2  # Unique ID
+
+# -----------------------------------------------------------------------------
+# GENERATION HINTS
+# -----------------------------------------------------------------------------
+generation_hints:
+  use_when:
+    - "An Action needs to define a user interaction"
+    - "User wants to collect input from a driver/visitor"
+    - "User wants to send an acknowledgement or confirmation"
+    - "User mentions prompting for information"
+    - "Multiple variants of an interaction are needed (v1, v2, etc.)"
+  
+  do_not_use_when:
+    - "There is no parent Action block"
+    - "The interaction is at the Protocol level (use Fill Data instead)"
+  
+  keywords:
+    - "card"
+    - "interaction"
+    - "prompt"
+    - "collect"
+    - "acknowledge"
+    - "input"
+    - "ask for"
+    - "version"
+
+# -----------------------------------------------------------------------------
+# STATE MANAGEMENT
+# -----------------------------------------------------------------------------
+state_management: |
+  Cards use state variables to track their execution status:
+  
+  Common state patterns:
+  - `{field}_filled`: Tracks if a field has been collected (e.g., truck_number_filled)
+  - `{card_id}_timeout`: Tracks if the card has timed out
+  - `{card_id}_maxretries`: Tracks retry count for the card
+  
+  Pre-conditions check state before Card executes:
+  - `state.truck_number_filled == False` (only execute if not already filled)
+  
+  Post-effects update state after Card completes:
+  - `state.truck_number_filled = True` (mark as filled after successful execution)
+  
+  The State List block provides easy documentation of all states related to a Card.
+
+# -----------------------------------------------------------------------------
+# VISUAL NOTES
+# -----------------------------------------------------------------------------
+visual_notes: |
+  In the UI, Cards are displayed horizontally side-by-side within their
+  parent Action, thanks to the "map_placement: horizontal" attribute.
+  This allows easy visual comparison of different Card variants or versions.

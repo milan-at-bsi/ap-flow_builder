@@ -1,0 +1,271 @@
+# =============================================================================
+# AI CONTEXT: Protocol Block
+# Workspace: Protocols
+# =============================================================================
+
+block_name: "Protocol"
+block_type: container
+workspace: protocols
+
+# -----------------------------------------------------------------------------
+# CORE INTENT
+# -----------------------------------------------------------------------------
+intent: |
+  Root container for an access control protocol flow. Every Protocol flow
+  must start with this block as the top-level container. Protocols define
+  the decision logic for granting or denying access based on collected data.
+
+description: |
+  The Protocol block is the top-level container that encapsulates an entire
+  access control decision flow. It serves as the entry point and organizational
+  structure for all child blocks that define the protocol's behavior.
+  
+  Key behaviors:
+  - Must be the root block of any protocol flow (cannot be nested)
+  - Contains the sequence of data collection (Fill Data) and decision logic (Switch)
+  - Must ultimately lead to an Access Decision (Granted or Denied)
+  - Defines the complete flow from initial data collection to final access decision
+  
+  Typical structure:
+  - Fill Data blocks to collect required information (vehicle type, driver info, etc.)
+  - Switch blocks to create branching logic based on collected data
+  - Access Decision blocks to determine final access outcome
+
+# -----------------------------------------------------------------------------
+# SEMANTIC ROLE
+# -----------------------------------------------------------------------------
+semantic_role: root
+
+# -----------------------------------------------------------------------------
+# FIELD DEFINITIONS
+# -----------------------------------------------------------------------------
+fields: null  # Protocol has no configurable fields - it is a pure container
+
+# -----------------------------------------------------------------------------
+# STRUCTURAL CONSTRAINTS
+# -----------------------------------------------------------------------------
+allowed_children:
+  - Fill Data
+  - Switch
+  - Access Decision
+
+required_children:
+  min: 1
+  max: null
+  types:
+    - Access Decision  # Every Protocol should have at least one Access Decision
+
+allowed_parents:
+  - root  # Protocol is always at the top level, cannot be nested
+
+# -----------------------------------------------------------------------------
+# RESTRICTIONS & RULES
+# -----------------------------------------------------------------------------
+restrictions:
+  - "Protocol must be the root block - it cannot be nested inside other blocks"
+  - "Every Protocol should eventually lead to an Access Decision"
+  - "Protocol cannot be empty - it must contain at least one child block"
+  - "A well-formed Protocol typically has Fill Data followed by decision logic"
+  - "All paths through the Protocol should terminate in an Access Decision"
+
+# -----------------------------------------------------------------------------
+# RELATIONSHIPS
+# -----------------------------------------------------------------------------
+relationships:
+  requires: null  # Protocol is the root, requires nothing above it
+  
+  pairs_with:
+    - Fill Data       # Protocols typically start with data collection
+    - Switch          # Protocols use Switch for conditional branching
+    - Access Decision # Protocols end with access decisions
+  
+  typically_preceded_by: null  # Nothing precedes Protocol (it's the root)
+  
+  typically_followed_by: null  # Nothing follows Protocol (it's the root container)
+
+# -----------------------------------------------------------------------------
+# USAGE EXAMPLES
+# -----------------------------------------------------------------------------
+examples:
+  - name: "Minimal Protocol"
+    description: "Simplest valid Protocol with just an Access Decision"
+    yaml: |
+      Protocol:
+        - Access Decision:
+            - access: Granted
+
+  - name: "Basic Protocol with Data Collection"
+    description: "Protocol that collects data before making a decision"
+    yaml: |
+      Protocol:
+        - Fill Data:
+            - vehicle_type
+        - Access Decision:
+            - access: Granted
+
+  - name: "Protocol with Conditional Logic"
+    description: "Protocol using Switch for branching based on vehicle type"
+    yaml: |
+      Protocol:
+        - Fill Data:
+            - vehicle_type
+        - Switch:
+            - On: vehicle_type
+            - Case:
+                - match: truck
+                - Access Decision:
+                    - access: Granted
+            - Case:
+                - match: car
+                - Access Decision:
+                    - access: Denied
+
+  - name: "Complete Check-in Protocol"
+    description: "Full protocol with multiple data fields and nested logic"
+    yaml: |
+      Protocol:
+        - Fill Data:
+            - vehicle_type
+            - required
+        - Fill Data:
+            - appointment_number
+        - Switch:
+            - On: vehicle_type
+            - Case:
+                - match: truck
+                - Fill Data:
+                    - truck_number
+                    - required
+                - Fill Data:
+                    - trailer_number
+                - Access Decision:
+                    - access: Granted
+            - Case:
+                - match: visitor
+                - Fill Data:
+                    - visitor_name
+                    - required
+                - Access Decision:
+                    - access: Granted
+
+  - name: "Protocol with Nested Switches"
+    description: "Complex protocol with multiple levels of branching"
+    yaml: |
+      Protocol:
+        - Fill Data:
+            - vehicle_type
+            - required
+        - Switch:
+            - On: vehicle_type
+            - Case:
+                - match: truck
+                - Fill Data:
+                    - has_appointment
+                - Switch:
+                    - On: has_appointment
+                    - Case:
+                        - match: "yes"
+                        - Fill Data:
+                            - appointment_number
+                            - required
+                        - Access Decision:
+                            - access: Granted
+                    - Case:
+                        - match: "no"
+                        - Access Decision:
+                            - access: Denied
+            - Case:
+                - match: visitor
+                - Access Decision:
+                    - access: Granted
+
+# -----------------------------------------------------------------------------
+# COMMON MISTAKES
+# -----------------------------------------------------------------------------
+common_mistakes:
+  - mistake: "Nesting Protocol inside another block"
+    correction: "Protocol must always be the root block"
+    example_wrong: |
+      Switch:
+        - Case:
+            - Protocol:  # Error: Protocol cannot be nested!
+                - Access Decision:
+                    - access: Granted
+    example_correct: |
+      Protocol:
+        - Switch:
+            - Case:
+                - Access Decision:
+                    - access: Granted
+
+  - mistake: "Creating Protocol without any Access Decision"
+    correction: "Every Protocol path should lead to an Access Decision"
+    example_wrong: |
+      Protocol:
+        - Fill Data:
+            - vehicle_type
+        # No Access Decision - incomplete protocol!
+    example_correct: |
+      Protocol:
+        - Fill Data:
+            - vehicle_type
+        - Access Decision:
+            - access: Granted
+
+  - mistake: "Empty Protocol"
+    correction: "Protocol must have at least one child block"
+    example_wrong: |
+      Protocol:  # Empty protocol - invalid!
+    example_correct: |
+      Protocol:
+        - Access Decision:
+            - access: Granted
+
+  - mistake: "Not all Switch paths lead to Access Decision"
+    correction: "Every Case in a Switch should eventually lead to an Access Decision"
+    example_wrong: |
+      Protocol:
+        - Switch:
+            - On: vehicle_type
+            - Case:
+                - match: truck
+                - Access Decision:
+                    - access: Granted
+            - Case:
+                - match: car
+                # Missing Access Decision for this path!
+    example_correct: |
+      Protocol:
+        - Switch:
+            - On: vehicle_type
+            - Case:
+                - match: truck
+                - Access Decision:
+                    - access: Granted
+            - Case:
+                - match: car
+                - Access Decision:
+                    - access: Denied
+
+# -----------------------------------------------------------------------------
+# GENERATION HINTS
+# -----------------------------------------------------------------------------
+generation_hints:
+  use_when:
+    - "Starting a new access control flow"
+    - "User wants to create a protocol"
+    - "Defining entry/exit procedures for a facility"
+    - "Creating vehicle or visitor check-in logic"
+  
+  do_not_use_when:
+    - "Already inside another Protocol (cannot nest)"
+    - "Working on Actions workspace (use Action instead)"
+  
+  keywords:
+    - "protocol"
+    - "create a protocol"
+    - "access flow"
+    - "entry protocol"
+    - "check-in"
+    - "access control"
+    - "gate logic"

@@ -1,0 +1,374 @@
+# =============================================================================
+# AI CONTEXT: Pre-Condition Block
+# Workspace: Actions
+# =============================================================================
+
+block_name: "Pre-Condition"
+block_type: leaf
+workspace: actions
+
+# -----------------------------------------------------------------------------
+# CORE INTENT
+# -----------------------------------------------------------------------------
+intent: |
+  Defines a single boolean expression that evaluates state variables to
+  determine if a card should be invoked. All Pre-Conditions within a
+  Pre-Conditions List container must evaluate to true for the card to run.
+
+description: |
+  The Pre-Condition block is a leaf within Pre-Conditions List that contains a
+  single expression to be evaluated against the system's state. This expression
+  typically checks state variables declared in the State List.
+  
+  Key behaviors:
+  - Contains an expression in the `pre_condition` field
+  - Expression is evaluated against current system state
+  - Returns boolean result (true/false)
+  - Card runner uses AND logic across all Pre-Conditions
+  - If ANY Pre-Condition is false, the card is NOT invoked
+  
+  Expression syntax:
+  - State reference: state.{variable_name}
+  - Comparison operators: ==, !=, <, >, <=, >=
+  - Logical operators: AND, OR
+  - Values: True, False, numbers, strings
+  
+  Common patterns:
+  - Field not filled: state.{field}_filled == False
+  - Field already filled: state.{field}_filled == True
+  - Timeout not occurred: state.{card_id}_timeout == False
+  - Retry limit not reached: state.{card_id}_maxretries < 3
+
+# -----------------------------------------------------------------------------
+# SEMANTIC ROLE
+# -----------------------------------------------------------------------------
+semantic_role: constraint
+
+# -----------------------------------------------------------------------------
+# FIELD DEFINITIONS
+# -----------------------------------------------------------------------------
+fields:
+  pre_condition:
+    intent: "The boolean expression to evaluate"
+    description: |
+      The pre_condition field contains a boolean expression that is evaluated
+      against the system's state. The expression follows this syntax:
+      
+      Basic format: state.{variable} {operator} {value}
+      
+      Operators:
+      - Equality: ==, !=
+      - Comparison: <, >, <=, >=
+      - Logical: AND, OR
+      
+      Values:
+      - Boolean: True, False
+      - Numeric: 0, 1, 3, etc.
+      - String: "value" (when needed)
+      
+      The expression MUST reference state variables that are declared in the
+      Card's State List or shared from other cards in the Action.
+    value_type: expression
+    required: true
+    default_behavior: |
+      No default - must be specified explicitly. Without a pre_condition
+      expression, the block serves no purpose.
+    examples:
+      - "state.truck_number_filled == False"
+      - "state.trailer_number_filled == True"
+      - "state.collect_truck_num_v1_timeout == False"
+      - "state.collect_truck_num_v1_maxretries < 3"
+      - "state.session_active == True AND state.driver_verified == True"
+
+# -----------------------------------------------------------------------------
+# STRUCTURAL CONSTRAINTS
+# -----------------------------------------------------------------------------
+allowed_children: []  # Leaf block - no children
+
+required_children:
+  min: 0
+  max: 0
+  types: []
+
+allowed_parents:
+  - Pre-Conditions List  # Pre-Condition can only exist inside Pre-Conditions List
+
+# -----------------------------------------------------------------------------
+# RESTRICTIONS & RULES
+# -----------------------------------------------------------------------------
+restrictions:
+  - "Pre-Condition blocks can ONLY exist as direct children of Pre-Conditions List"
+  - "The pre_condition expression must reference declared state variables"
+  - "State variables must be declared in the Card's State List"
+  - "Expression must evaluate to a boolean value (true/false)"
+  - "Use 'state.' prefix when referencing state variables"
+  - "Use '==' for comparison, not '=' (which is assignment)"
+
+# -----------------------------------------------------------------------------
+# RELATIONSHIPS
+# -----------------------------------------------------------------------------
+relationships:
+  requires:
+    - Pre-Conditions List  # Pre-Condition must have a Pre-Conditions List parent
+    - State List      # States referenced should be declared in State List
+  
+  pairs_with:
+    - state        # References state variables declared by state blocks
+    - Post Effect  # Often paired with post_effects that update the same state
+  
+  typically_preceded_by: null  # Order in Pre-Conditions List is flexible
+  
+  typically_followed_by: null  # Order in Pre-Conditions List is flexible
+
+# -----------------------------------------------------------------------------
+# USAGE EXAMPLES
+# -----------------------------------------------------------------------------
+examples:
+  - name: "Basic Field Not Filled Check"
+    description: "Check if a field hasn't been filled yet"
+    yaml: |
+      Pre-Condition:
+        - pre_condition: state.truck_number_filled == False
+
+  - name: "Field Already Filled Check"
+    description: "Check if a prerequisite field has been filled"
+    yaml: |
+      Pre-Condition:
+        - pre_condition: state.truck_number_filled == True
+
+  - name: "Timeout Check"
+    description: "Check if card hasn't timed out"
+    yaml: |
+      Pre-Condition:
+        - pre_condition: state.collect_truck_num_v1_timeout == False
+
+  - name: "Retry Counter Check"
+    description: "Check if retry limit hasn't been reached"
+    yaml: |
+      Pre-Condition:
+        - pre_condition: state.collect_truck_num_v1_maxretries < 3
+
+  - name: "Combined Condition with AND"
+    description: "Multiple conditions in single expression"
+    yaml: |
+      Pre-Condition:
+        - pre_condition: state.session_active == True AND state.driver_verified == True
+
+  - name: "Combined Condition with OR"
+    description: "Either condition being true satisfies the check"
+    yaml: |
+      Pre-Condition:
+        - pre_condition: state.option_a_selected == True OR state.option_b_selected == True
+
+  - name: "In Pre-Conditions List Container"
+    description: "How Pre-Condition fits inside Pre-Conditions List"
+    yaml: |
+      Pre-Conditions List:
+        - Pre-Condition:
+            - pre_condition: state.truck_number_filled == False
+        - Pre-Condition:
+            - pre_condition: state.collect_truck_num_v1_timeout == False
+
+  - name: "Complete Card Context"
+    description: "Pre-Condition in full card flow"
+    yaml: |
+      Card:
+        - card_id: collect_truck_num_v1
+        - State List:
+            - state:
+                - name: truck_number_filled
+            - state:
+                - name: collect_truck_num_v1_timeout
+        - delivery:
+            - intent:
+                - intent: collect
+            - interaction:
+                - interaction_type: input.text
+                - field:
+                    - field: truck_number
+                    - label: Truck Number
+                    - prompt: Enter truck number
+        - Policy:
+            - Timeout:
+                - timeout_sec: "30"
+        - Pre-Conditions List:
+            - Pre-Condition:
+                - pre_condition: state.truck_number_filled == False
+            - Pre-Condition:
+                - pre_condition: state.collect_truck_num_v1_timeout == False
+        - post_effects:
+            - Post Effect:
+                - post_effect: state.truck_number_filled = True
+
+  - name: "Sequential Card Dependencies"
+    description: "Pre-condition checking another card's state"
+    yaml: |
+      # Card B depends on Card A completing
+      Card:
+        - card_id: collect_trailer_num_v1
+        - State List:
+            - state:
+                - name: truck_number_filled  # From Card A
+            - state:
+                - name: trailer_number_filled
+        - Pre-Conditions List:
+            - Pre-Condition:
+                - pre_condition: state.truck_number_filled == True  # Card A done
+            - Pre-Condition:
+                - pre_condition: state.trailer_number_filled == False  # This card not done
+
+# -----------------------------------------------------------------------------
+# COMMON MISTAKES
+# -----------------------------------------------------------------------------
+common_mistakes:
+  - mistake: "Placing Pre-Condition outside of Pre-Conditions List"
+    correction: "Pre-Condition blocks must always be inside Pre-Conditions List"
+    example_wrong: |
+      Card:
+        - card_id: my_card
+        - Pre-Condition:  # Error: Not inside Pre-Conditions List!
+            - pre_condition: state.filled == False
+    example_correct: |
+      Card:
+        - card_id: my_card
+        - Pre-Conditions List:
+            - Pre-Condition:  # Correct: Inside Pre-Conditions List
+                - pre_condition: state.filled == False
+
+  - mistake: "Using assignment (=) instead of comparison (==)"
+    correction: "Use == for comparison in Pre-Conditions List"
+    example_wrong: |
+      Pre-Condition:
+        - pre_condition: state.truck_number_filled = False  # Error: Assignment!
+    example_correct: |
+      Pre-Condition:
+        - pre_condition: state.truck_number_filled == False  # Correct: Comparison
+
+  - mistake: "Referencing undeclared state variables"
+    correction: "All states must be declared in State List"
+    example_wrong: |
+      Card:
+        - card_id: my_card
+        - State List:
+            - state:
+                - name: truck_number_filled
+        - Pre-Conditions List:
+            - Pre-Condition:
+                - pre_condition: state.driver_verified == True  # Error: Not declared!
+    example_correct: |
+      Card:
+        - card_id: my_card
+        - State List:
+            - state:
+                - name: truck_number_filled
+            - state:
+                - name: driver_verified  # Now declared
+        - Pre-Conditions List:
+            - Pre-Condition:
+                - pre_condition: state.driver_verified == True
+
+  - mistake: "Missing 'state.' prefix"
+    correction: "Always use 'state.' prefix when referencing state variables"
+    example_wrong: |
+      Pre-Condition:
+        - pre_condition: truck_number_filled == False  # Error: Missing state.!
+    example_correct: |
+      Pre-Condition:
+        - pre_condition: state.truck_number_filled == False  # Correct
+
+  - mistake: "Case sensitivity in boolean values"
+    correction: "Use 'True' and 'False' with capital first letter"
+    example_wrong: |
+      Pre-Condition:
+        - pre_condition: state.filled == true  # May cause issues
+    example_correct: |
+      Pre-Condition:
+        - pre_condition: state.filled == True  # Consistent casing
+
+# -----------------------------------------------------------------------------
+# GENERATION HINTS
+# -----------------------------------------------------------------------------
+generation_hints:
+  use_when:
+    - "Card needs to check state before executing"
+    - "Card should only run when certain conditions are met"
+    - "Preventing card from running if data already collected"
+    - "Creating dependencies between cards"
+    - "Checking timeout or retry states"
+  
+  do_not_use_when:
+    - "There is no parent Pre-Conditions List container"
+    - "The check doesn't involve state variables"
+    - "Card should always run regardless of state"
+  
+  keywords:
+    - "condition"
+    - "check"
+    - "before"
+    - "if"
+    - "only when"
+    - "not already"
+    - "filled"
+    - "timeout"
+    - "retry"
+    - "depends on"
+
+# -----------------------------------------------------------------------------
+# EXPRESSION SYNTAX REFERENCE
+# -----------------------------------------------------------------------------
+expression_syntax: |
+  Pre-condition expressions follow this syntax:
+  
+  BASIC EXPRESSION:
+  state.{variable} {operator} {value}
+  
+  OPERATORS:
+  ├── Equality
+  │   ├── ==    Equal to
+  │   └── !=    Not equal to
+  ├── Comparison
+  │   ├── <     Less than
+  │   ├── >     Greater than
+  │   ├── <=    Less than or equal
+  │   └── >=    Greater than or equal
+  └── Logical
+      ├── AND   Both conditions must be true
+      └── OR    Either condition must be true
+  
+  VALUES:
+  ├── Boolean: True, False
+  ├── Numeric: 0, 1, 2, 3, etc.
+  └── String: "value" (rare in pre-conditions)
+  
+  EXAMPLES:
+  state.field_filled == False           # Boolean check
+  state.card_timeout == True            # Timeout check
+  state.retry_count < 3                 # Numeric comparison
+  state.a == True AND state.b == True   # Combined AND
+  state.a == True OR state.b == True    # Combined OR
+
+# -----------------------------------------------------------------------------
+# STATE GATE PATTERN
+# -----------------------------------------------------------------------------
+state_gate_pattern: |
+  Pre-Conditions implement the "State Gate" pattern:
+  
+  ┌─────────────────────────────────────────────────────────┐
+  │                    Card Execution Flow                   │
+  │                                                          │
+  │   System State         Pre-Condition          Decision   │
+  │   ────────────         ─────────────          ────────   │
+  │   truck_number_filled  state.truck_number     FALSE:     │
+  │   = False              _filled == False       ALLOW      │
+  │                        → evaluates TRUE                  │
+  │                                                          │
+  │   truck_number_filled  state.truck_number     TRUE:      │
+  │   = True               _filled == False       BLOCK      │
+  │                        → evaluates FALSE                 │
+  └─────────────────────────────────────────────────────────┘
+  
+  This pattern ensures:
+  • Cards run only when state allows
+  • Prevents duplicate execution
+  • Enables sequential dependencies
+  • Provides runtime control flow

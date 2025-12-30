@@ -1,0 +1,308 @@
+# =============================================================================
+# AI CONTEXT: trailer_number Block
+# Workspace: Actions
+# =============================================================================
+
+block_name: "trailer_number"
+block_type: leaf
+workspace: actions
+
+# -----------------------------------------------------------------------------
+# CORE INTENT
+# -----------------------------------------------------------------------------
+intent: |
+  Represents the trailer_number state variable, a commonly used field in freight
+  and logistics flows for tracking whether the trailer identification number has
+  been collected and validated.
+
+description: |
+  The trailer_number block is a specific instance of a state block that tracks
+  the trailer identification number collection status. This is one of the most
+  common data points collected in driver check-in and access control flows,
+  typically collected after truck_number.
+  
+  Key behaviors:
+  - Declares trailer_number_filled state variable initialized to False
+  - Used in Pre-Conditions List to check if trailer number needs collection
+  - Updated in post_effects when trailer number is successfully collected
+  - Often depends on truck_number being collected first
+  
+  Related state variables:
+  - trailer_number_filled: Boolean tracking if number was collected
+  - trailer_number_validated: Boolean tracking if format/registry validated
+  - trailer_number_timeout: Boolean tracking collection timeout
+
+# -----------------------------------------------------------------------------
+# SEMANTIC ROLE
+# -----------------------------------------------------------------------------
+semantic_role: data_collection
+
+# -----------------------------------------------------------------------------
+# FIELD DEFINITIONS
+# -----------------------------------------------------------------------------
+fields:
+  init:
+    intent: "Initializes the trailer_number state variable with its starting value"
+    description: |
+      The init field contains the state variable declaration in format:
+      trailer_number_filled: False
+      
+      This declares that the trailer number has not yet been collected.
+      After successful collection, post_effects set this to True.
+    value_type: "state_initialization"
+    required: true
+    default_behavior: |
+      Should be initialized to False since trailer number starts as uncollected.
+    examples:
+      - "trailer_number_filled: False"
+      - "trailer_number_validated: False"
+      - "trailer_number_timeout: False"
+
+# -----------------------------------------------------------------------------
+# STRUCTURAL CONSTRAINTS
+# -----------------------------------------------------------------------------
+allowed_children: []  # Leaf block - no children
+
+required_children:
+  min: 0
+  max: 0
+  types: []
+
+allowed_parents:
+  - State List  # trailer_number can only exist inside State List
+
+# -----------------------------------------------------------------------------
+# RESTRICTIONS & RULES
+# -----------------------------------------------------------------------------
+restrictions:
+  - "trailer_number blocks can ONLY exist as direct children of State List"
+  - "Should always be initialized to False (uncollected state)"
+  - "Must be referenced in Pre-Conditions List or post_effects to be useful"
+  - "Use trailer_number_filled for collection status, trailer_number_validated for validation status"
+
+# -----------------------------------------------------------------------------
+# RELATIONSHIPS
+# -----------------------------------------------------------------------------
+relationships:
+  requires:
+    - State List  # Must have a State List parent
+  
+  pairs_with:
+    - Pre-Condition  # States are checked in pre-conditions
+    - Post Effect    # States are updated in post-effects
+    - field          # Often paired with a field block collecting the actual number
+  
+  typically_preceded_by:
+    - truck_number  # Usually collected after truck number
+  
+  typically_followed_by:
+    - driver_name   # Often followed by driver identification
+
+# -----------------------------------------------------------------------------
+# USAGE EXAMPLES
+# -----------------------------------------------------------------------------
+examples:
+  - name: "Basic trailer_number State"
+    description: "Simple declaration of trailer_number_filled state"
+    yaml: |
+      state:
+        - trailer_number_filled: False
+
+  - name: "In State List"
+    description: "trailer_number within a State List container"
+    yaml: |
+      State List:
+        - state:
+            - trailer_number_filled: False
+
+  - name: "With Related States"
+    description: "trailer_number with validation and timeout states"
+    yaml: |
+      State List:
+        - state:
+            - trailer_number_filled: False
+        - state:
+            - trailer_number_validated: False
+        - state:
+            - collect_trailer_num_v1_timeout: False
+
+  - name: "Complete Card with trailer_number"
+    description: "Card that collects trailer number with state tracking"
+    yaml: |
+      Card:
+        - card_id: collect_trailer_num_v1
+        - State List:
+            - state:
+                - trailer_number_filled: False
+        - delivery:
+            - intent:
+                - intent: collect
+            - interaction:
+                - interaction_type: input.text
+                - field:
+                    - field: trailer_number
+                    - label: Trailer Number
+                    - prompt: Please enter your trailer number
+        - Policy:
+            - Timeout:
+                - timeout_sec: "30"
+        - Pre-Conditions List:
+            - Pre-Condition:
+                - pre_condition: state.trailer_number_filled == False
+        - post_effects:
+            - Post Effect:
+                - post_effect: state.trailer_number_filled = True
+
+  - name: "Sequential Dependency on truck_number"
+    description: "Trailer collection that depends on truck number being filled first"
+    yaml: |
+      Card:
+        - card_id: collect_trailer_num_v1
+        - State List:
+            - state:
+                - truck_number_filled: False
+            - state:
+                - trailer_number_filled: False
+        - Pre-Conditions List:
+            - Pre-Condition:
+                - pre_condition: state.truck_number_filled == True
+            - Pre-Condition:
+                - pre_condition: state.trailer_number_filled == False
+        - post_effects:
+            - Post Effect:
+                - post_effect: state.trailer_number_filled = True
+
+  - name: "Full Truck and Trailer Collection Sequence"
+    description: "Two cards showing sequential collection flow"
+    yaml: |
+      Action:
+        - action: collect_vehicle_info
+        - Card:
+            - card_id: collect_truck_num_v1
+            - State List:
+                - state:
+                    - truck_number_filled: False
+            - Pre-Conditions List:
+                - Pre-Condition:
+                    - pre_condition: state.truck_number_filled == False
+            - post_effects:
+                - Post Effect:
+                    - post_effect: state.truck_number_filled = True
+        - Card:
+            - card_id: collect_trailer_num_v1
+            - State List:
+                - state:
+                    - trailer_number_filled: False
+            - Pre-Conditions List:
+                - Pre-Condition:
+                    - pre_condition: state.truck_number_filled == True
+                - Pre-Condition:
+                    - pre_condition: state.trailer_number_filled == False
+            - post_effects:
+                - Post Effect:
+                    - post_effect: state.trailer_number_filled = True
+
+# -----------------------------------------------------------------------------
+# COMMON MISTAKES
+# -----------------------------------------------------------------------------
+common_mistakes:
+  - mistake: "Using 'trailer_number' instead of 'trailer_number_filled'"
+    correction: "State variables should indicate status, not the data itself"
+    example_wrong: |
+      state:
+        - trailer_number: False  # Confusing - is this the number or status?
+    example_correct: |
+      state:
+        - trailer_number_filled: False  # Clear - tracks if number was collected
+
+  - mistake: "Initializing to True"
+    correction: "State starts as False since data hasn't been collected yet"
+    example_wrong: |
+      state:
+        - trailer_number_filled: True  # Wrong initial state
+    example_correct: |
+      state:
+        - trailer_number_filled: False  # Correct - starts uncollected
+
+  - mistake: "Collecting trailer before truck"
+    correction: "Typically truck_number should be collected before trailer_number"
+    example_wrong: |
+      Card:
+        - card_id: collect_trailer_first
+        - Pre-Conditions List:
+            - Pre-Condition:
+                - pre_condition: state.trailer_number_filled == False
+        # Truck number not checked - wrong order!
+    example_correct: |
+      Card:
+        - card_id: collect_trailer_after_truck
+        - Pre-Conditions List:
+            - Pre-Condition:
+                - pre_condition: state.truck_number_filled == True
+            - Pre-Condition:
+                - pre_condition: state.trailer_number_filled == False
+
+  - mistake: "Not including in post_effects"
+    correction: "If you check a state in Pre-Conditions List, update it in post_effects"
+    example_wrong: |
+      Card:
+        - Pre-Conditions List:
+            - Pre-Condition:
+                - pre_condition: state.trailer_number_filled == False
+        # Missing post_effects to set trailer_number_filled = True!
+    example_correct: |
+      Card:
+        - Pre-Conditions List:
+            - Pre-Condition:
+                - pre_condition: state.trailer_number_filled == False
+        - post_effects:
+            - Post Effect:
+                - post_effect: state.trailer_number_filled = True
+
+# -----------------------------------------------------------------------------
+# GENERATION HINTS
+# -----------------------------------------------------------------------------
+generation_hints:
+  use_when:
+    - "Collecting trailer identification number"
+    - "Creating driver check-in flow"
+    - "Tracking freight trailer entry"
+    - "Sequential data collection after truck info"
+  
+  do_not_use_when:
+    - "Flow doesn't involve trailer identification"
+    - "Driver is not pulling a trailer (bobtail)"
+    - "Using a different vehicle identification scheme"
+  
+  keywords:
+    - "trailer number"
+    - "trailer ID"
+    - "container number"
+    - "trailer identification"
+    - "check-in"
+    - "freight"
+    - "driver arrival"
+
+# -----------------------------------------------------------------------------
+# DATA CONTEXT
+# -----------------------------------------------------------------------------
+data_context: |
+  The trailer_number is typically:
+  - A unique identifier for the trailer/container unit
+  - Often displayed on the front and sides of the trailer
+  - Used for tracking, scheduling, and access control
+  - May be validated against a registry or expected arrivals list
+  - May be skipped if driver arrives without a trailer (bobtail)
+  
+  Common formats:
+  - Alphanumeric (e.g., "TRL-12345", "ABCD1234567")
+  - Container numbers follow ISO 6346 format (e.g., "MAEU1234567")
+  - Numeric only (e.g., "54321")
+  - Company-specific patterns
+  
+  Related data points often collected together:
+  - truck_number → trailer_number → driver_name → appointment_number
+  
+  Special cases:
+  - Bobtail (no trailer): May skip trailer collection or use placeholder
+  - Multiple trailers: May need to collect additional trailer numbers

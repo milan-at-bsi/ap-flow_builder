@@ -1,0 +1,155 @@
+# =============================================================================
+# WORKSPACE-LEVEL AI CONTEXT: Protocols
+# =============================================================================
+# This file provides high-level context about the Protocols workspace.
+# AI should read this first to understand the overall purpose and patterns
+# before looking at individual block context files.
+# =============================================================================
+
+workspace_name: Protocols
+
+# -----------------------------------------------------------------------------
+# PURPOSE
+# -----------------------------------------------------------------------------
+purpose: |
+  The Protocols workspace is designed for building access control protocols
+  for facility entry. Users create visual flows that define how to collect
+  information from visitors/drivers and make access decisions based on that data.
+
+domain: "Facility access control, gate entry, security protocols"
+
+# -----------------------------------------------------------------------------
+# TYPICAL USE CASES
+# -----------------------------------------------------------------------------
+use_cases:
+  - "Creating entry protocols for truck yards"
+  - "Defining access rules based on vehicle type"
+  - "Collecting driver credentials and validating them"
+  - "Branching flows based on different visitor types"
+  - "Making grant/deny access decisions"
+
+# -----------------------------------------------------------------------------
+# FLOW PATTERNS
+# -----------------------------------------------------------------------------
+# Common patterns that appear in Protocol flows
+
+typical_flow_structure: |
+  Protocol
+    └── Fill Data (collect initial data, e.g., vehicle_type)
+    └── Switch (branch based on collected data)
+        ├── Case (value1)
+        │   └── Fill Data (collect specific data)
+        │   └── Access Decision (grant/deny)
+        └── Case (value2)
+            └── Fill Data (collect different data)
+            └── Access Decision (grant/deny)
+
+flow_patterns:
+  - name: "Simple Linear Flow"
+    description: "Collect data sequentially, then decide"
+    pattern: |
+      Protocol → Fill Data → Fill Data → Access Decision
+
+  - name: "Branching Flow"
+    description: "Collect initial data, branch based on value, handle each case"
+    pattern: |
+      Protocol → Fill Data → Switch → [Case → Fill Data → Decision] × N
+
+  - name: "Nested Branching"
+    description: "Multiple levels of branching for complex decisions"
+    pattern: |
+      Protocol → Fill Data → Switch → Case → Fill Data → Switch → Case → Decision
+
+# -----------------------------------------------------------------------------
+# KEY CONCEPTS
+# -----------------------------------------------------------------------------
+key_concepts:
+  data_fields: |
+    Data fields (vehicle_type, truck_number, etc.) represent pieces of
+    information that need to be collected from the user. They are typically
+    placed inside "Fill Data" containers and referenced in Switch blocks.
+  
+  branching: |
+    The Switch/Case pattern is used to create different paths based on
+    collected data. The Switch's "On" field references a data_field, and
+    each Case's "match" field specifies a value to match against.
+  
+  access_decisions: |
+    Every flow should end with an Access Decision that either grants or
+    denies access. This is the terminal state of the protocol.
+
+# -----------------------------------------------------------------------------
+# BLOCK INVENTORY
+# -----------------------------------------------------------------------------
+# All blocks available in this workspace with their roles
+
+blocks:
+  containers:
+    - name: Protocol
+      role: "Root container for the entire flow"
+    - name: Switch
+      role: "Creates conditional branching based on a variable"
+    - name: Case
+      role: "Represents one branch within a Switch"
+    - name: Fill Data
+      role: "Container for collecting a piece of data"
+
+  leaves:
+    - name: Access Decision
+      role: "Terminal block that grants or denies access"
+    - name: vehicle_type
+      role: "Data field for vehicle classification"
+    - name: truck_number
+      role: "Data field for truck identification number"
+    - name: trailer_number
+      role: "Data field for trailer identification number"
+    - name: license_plate
+      role: "Data field for vehicle license plate"
+    - name: cdl_number
+      role: "Data field for commercial driver's license"
+    - name: required
+      role: "Constraint that marks a field as mandatory"
+
+# -----------------------------------------------------------------------------
+# GENERATION RULES
+# -----------------------------------------------------------------------------
+# Rules AI should follow when generating Protocol flows
+
+generation_rules:
+  - "Every Protocol must end with at least one Access Decision"
+  - "Data fields must be collected (via Fill Data) before being referenced in Switch"
+  - "Each Case in a Switch must have a unique match value"
+  - "Switch blocks should have at least 2 Case children to be meaningful"
+  - "The Protocol block is always the root - nothing can contain it"
+  - "Fill Data containers should contain exactly one data_field"
+
+# -----------------------------------------------------------------------------
+# EXAMPLE COMPLETE FLOW
+# -----------------------------------------------------------------------------
+example_flow:
+  description: "A complete protocol for truck yard entry"
+  yaml: |
+    diagram:
+      Protocol:
+        - Fill Data:
+            - vehicle_type
+        - Switch:
+            - On: vehicle_type
+            - Case:
+                - match: truck
+                - Fill Data:
+                    - truck_number
+                - Fill Data:
+                    - trailer_number
+                - Access Decision:
+                    - access: Granted
+            - Case:
+                - match: bobtail
+                - Fill Data:
+                    - truck_number
+                - Access Decision:
+                    - access: Granted
+            - Case:
+                - match: personal
+                - Access Decision:
+                    - access: Denied

@@ -1,0 +1,259 @@
+# =============================================================================
+# AI CONTEXT: Fill Data Block
+# Workspace: Protocols
+# =============================================================================
+
+block_name: "Fill Data"
+block_type: container
+workspace: protocols
+
+# -----------------------------------------------------------------------------
+# CORE INTENT
+# -----------------------------------------------------------------------------
+intent: |
+  Container for collecting a piece of data from the user. Contains a data_field
+  block that specifies which information to collect, and optionally constraint
+  blocks like 'required' to enforce data collection rules.
+
+description: |
+  The Fill Data block is a data collection container that wraps a single
+  data_field block. It represents a step in the protocol where specific
+  information must be gathered from the user or system.
+  
+  Key behaviors:
+  - Contains exactly one data_field block (vehicle_type, truck_number, etc.)
+  - Can include optional constraint blocks (like 'required')
+  - The contained data_field defines what information is being collected
+  - Data collected becomes available for use in Switch conditions
+  - Multiple Fill Data blocks can be chained for sequential collection
+  
+  Fill Data is the primary mechanism for gathering input in protocol flows.
+  The collected data can then drive branching logic via Switch blocks or
+  be used for access decision criteria.
+
+# -----------------------------------------------------------------------------
+# SEMANTIC ROLE
+# -----------------------------------------------------------------------------
+semantic_role: data_collection
+
+# -----------------------------------------------------------------------------
+# FIELD DEFINITIONS
+# -----------------------------------------------------------------------------
+fields: null  # Fill Data has no configurable fields - it is a pure container for data_field blocks
+
+# -----------------------------------------------------------------------------
+# STRUCTURAL CONSTRAINTS
+# -----------------------------------------------------------------------------
+allowed_children:
+  - vehicle_type
+  - truck_number
+  - trailer_number
+  - license_plate
+  - cdl_number
+  - required
+  - block_type: data_field
+  - block_type: constraint
+
+required_children:
+  min: 1
+  max: 1
+  types:
+    - block_type: data_field
+
+allowed_parents:
+  - Protocol
+  - Case
+
+# -----------------------------------------------------------------------------
+# RESTRICTIONS & RULES
+# -----------------------------------------------------------------------------
+restrictions:
+  - "Fill Data must contain exactly one data_field block"
+  - "The data_field inside determines what information is collected"
+  - "Can optionally include constraint blocks like 'required'"
+  - "Fill Data cannot be empty - it must have a data_field child"
+  - "Multiple data_field blocks in one Fill Data is not allowed - use separate Fill Data blocks"
+  - "Data fields should be collected before they are referenced in Switch blocks"
+
+# -----------------------------------------------------------------------------
+# RELATIONSHIPS
+# -----------------------------------------------------------------------------
+relationships:
+  requires:
+    - data_field  # Must contain a data_field to be meaningful
+  
+  pairs_with:
+    - required    # Often paired with required constraint
+    - Switch      # Data collected is often used in Switch conditions
+  
+  typically_preceded_by:
+    - Protocol    # Often first thing after Protocol root
+    - Fill Data   # Can follow other Fill Data blocks
+  
+  typically_followed_by:
+    - Switch         # Branch based on collected data
+    - Access Decision # Make decision using collected data
+    - Fill Data      # Collect more data
+
+# -----------------------------------------------------------------------------
+# USAGE EXAMPLES
+# -----------------------------------------------------------------------------
+examples:
+  - name: "Basic Fill Data"
+    description: "Simplest form - collect vehicle type"
+    yaml: |
+      Fill Data:
+        - vehicle_type
+
+  - name: "Fill Data with Required Constraint"
+    description: "Collect truck number and make it mandatory"
+    yaml: |
+      Fill Data:
+        - truck_number
+        - required:
+            - value: "true"
+
+  - name: "Multiple Fill Data in Sequence"
+    description: "Collect multiple pieces of data"
+    yaml: |
+      Protocol:
+        - Fill Data:
+            - vehicle_type
+        - Fill Data:
+            - truck_number
+            - required
+        - Fill Data:
+            - trailer_number
+
+  - name: "Fill Data Before Switch"
+    description: "Collect data then branch based on it"
+    yaml: |
+      Protocol:
+        - Fill Data:
+            - vehicle_type
+        - Switch:
+            - On: vehicle_type
+            - Case:
+                - match: truck
+                - Access Decision:
+                    - access: Granted
+            - Case:
+                - match: visitor
+                - Access Decision:
+                    - access: Denied
+
+  - name: "Fill Data Inside Case"
+    description: "Conditional data collection based on branch"
+    yaml: |
+      Case:
+        - match: truck
+        - Fill Data:
+            - truck_number
+            - required
+        - Fill Data:
+            - trailer_number
+        - Access Decision:
+            - access: Granted
+
+  - name: "Complete Data Collection Flow"
+    description: "Full protocol with multiple data collection points"
+    yaml: |
+      Protocol:
+        - Fill Data:
+            - vehicle_type
+            - required
+        - Switch:
+            - On: vehicle_type
+            - Case:
+                - match: truck
+                - Fill Data:
+                    - truck_number
+                    - required
+                - Fill Data:
+                    - trailer_number
+                - Fill Data:
+                    - license_plate
+                - Access Decision:
+                    - access: Granted
+            - Case:
+                - match: visitor
+                - Fill Data:
+                    - cdl_number
+                - Access Decision:
+                    - access: Granted
+
+# -----------------------------------------------------------------------------
+# COMMON MISTAKES
+# -----------------------------------------------------------------------------
+common_mistakes:
+  - mistake: "Empty Fill Data with no data_field"
+    correction: "Fill Data must contain exactly one data_field"
+    example_wrong: |
+      Fill Data:  # Error: No data_field inside!
+    example_correct: |
+      Fill Data:
+        - vehicle_type
+
+  - mistake: "Multiple data_field blocks in one Fill Data"
+    correction: "Use separate Fill Data blocks for each field"
+    example_wrong: |
+      Fill Data:
+        - vehicle_type
+        - truck_number  # Error: Multiple data_fields!
+    example_correct: |
+      Fill Data:
+        - vehicle_type
+      Fill Data:
+        - truck_number
+
+  - mistake: "Using collected data in Switch before Fill Data"
+    correction: "Always collect data with Fill Data before using it in Switch"
+    example_wrong: |
+      Protocol:
+        - Switch:
+            - On: vehicle_type  # Error: Not collected yet!
+            - Case:
+                - match: truck
+    example_correct: |
+      Protocol:
+        - Fill Data:
+            - vehicle_type  # Collect first
+        - Switch:
+            - On: vehicle_type  # Now it's valid
+            - Case:
+                - match: truck
+
+  - mistake: "Using 'required' without a data_field"
+    correction: "'required' constraint should accompany a data_field"
+    example_wrong: |
+      Fill Data:
+        - required  # Error: No data_field to require!
+    example_correct: |
+      Fill Data:
+        - truck_number
+        - required
+
+# -----------------------------------------------------------------------------
+# GENERATION HINTS
+# -----------------------------------------------------------------------------
+generation_hints:
+  use_when:
+    - "User needs to collect information"
+    - "Data needs to be gathered before making a decision"
+    - "A Switch block will need a variable to evaluate"
+    - "Protocol requires user input"
+  
+  do_not_use_when:
+    - "No data collection is needed"
+    - "The data already exists from a previous step"
+    - "Inside blocks that don't allow data collection"
+  
+  keywords:
+    - "collect"
+    - "ask for"
+    - "get the"
+    - "fill in"
+    - "enter"
+    - "input"
+    - "gather"
+    - "need to know"

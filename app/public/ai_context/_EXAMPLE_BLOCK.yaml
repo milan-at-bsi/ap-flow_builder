@@ -1,0 +1,197 @@
+# =============================================================================
+# AI CONTEXT TEMPLATE FOR BLOCK DEFINITIONS
+# =============================================================================
+# This file serves as a reference template for creating AI context files.
+# Each block in the workspace should have its own AI context file following
+# this structure. AI can use this template to understand and generate
+# context files for other blocks.
+#
+# File naming convention: {BlockName}.yaml (spaces replaced with underscores)
+# Example: "Fill Data" → "Fill_Data.yaml"
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# BLOCK IDENTIFICATION
+# -----------------------------------------------------------------------------
+block_name: "ExampleBlock"           # Must match the 'name' in workspace YAML
+block_type: container                # container | leaf
+workspace: protocols                 # Which workspace this block belongs to
+
+# -----------------------------------------------------------------------------
+# CORE INTENT (Required)
+# -----------------------------------------------------------------------------
+intent: |
+  A clear, concise description of what this block accomplishes in the flow.
+  This should answer: "What is the purpose of using this block?"
+  
+  Example: "Creates conditional branching based on a variable's value,
+  routing the flow to different Case children depending on the match."
+
+description: |
+  A more detailed explanation of the block's behavior, how it works,
+  and any important details an AI should understand when using it.
+  
+  This can include:
+  - How the block processes data
+  - What happens when the block is executed
+  - Any side effects or state changes
+
+# -----------------------------------------------------------------------------
+# SEMANTIC ROLE (Required)
+# -----------------------------------------------------------------------------
+# Categorizes the block's high-level function in a flow
+semantic_role: branching  # One of:
+                          # - root           : Top-level container (Protocol, Action)
+                          # - branching      : Creates conditional paths (Switch, Case)
+                          # - data_collection: Collects user input (Fill Data, field)
+                          # - decision       : Makes a determination (Access Decision)
+                          # - constraint     : Adds rules/requirements (required, Pre-Condition)
+                          # - action         : Performs an operation (on_success, Post Effect)
+                          # - grouping       : Organizes other blocks (Policy, Pre-Conditions List)
+
+# -----------------------------------------------------------------------------
+# FIELD DEFINITIONS (Required if block has fields)
+# -----------------------------------------------------------------------------
+fields:
+  # Each field from the block definition should have an entry here
+  field_name_1:
+    intent: "What this field is used for"
+    description: "Detailed explanation of the field's purpose and how it affects behavior"
+    value_type: text          # text | number | boolean | block_reference | expression
+    required: true            # Is this field required?
+    default_behavior: |
+      What happens if this field is left empty or uses its default value
+    valid_values:             # Optional: If field has specific valid values
+      - value1: "Explanation of what this value means"
+      - value2: "Explanation of what this value means"
+    examples:
+      - "example_value_1"
+      - "example_value_2"
+
+  field_name_2:
+    intent: "Purpose of the second field"
+    # ... same structure as above
+
+# -----------------------------------------------------------------------------
+# STRUCTURAL CONSTRAINTS (Required for containers)
+# -----------------------------------------------------------------------------
+# Defines what can be placed inside this container and where this block can go
+
+allowed_children:           # What blocks can be direct children (for containers)
+  - BlockName1
+  - BlockName2
+  - block_type: data_field  # Can also reference by block_type
+
+required_children:          # Minimum requirements for children
+  min: 2                    # Minimum number of children
+  max: null                 # Maximum (null = unlimited)
+  types:                    # Which types are required
+    - Case                  # Example: Switch requires at least 2 Case children
+
+allowed_parents:            # Where this block can be placed
+  - ParentBlock1
+  - ParentBlock2
+  - root                    # 'root' means it can be at the top level
+
+# -----------------------------------------------------------------------------
+# RESTRICTIONS & RULES (Required)
+# -----------------------------------------------------------------------------
+# Critical rules the AI must follow when using this block
+
+restrictions:
+  - "Clear statement of what NOT to do with this block"
+  - "Another restriction or rule"
+  - "Example: 'On field must reference a data_field that appears earlier in the flow'"
+  - "Example: 'Each Case match value must be unique within the same Switch'"
+  - "Example: 'Cannot be nested inside another block of the same type'"
+
+# -----------------------------------------------------------------------------
+# RELATIONSHIPS (Recommended)
+# -----------------------------------------------------------------------------
+# How this block relates to other blocks in the workspace
+
+relationships:
+  requires:                 # Blocks that must exist for this block to work
+    - data_field           # Example: Switch requires a data_field to switch on
+  
+  pairs_with:              # Blocks commonly used together
+    - Case                 # Example: Switch always pairs with Case
+  
+  typically_preceded_by:   # What usually comes before this block
+    - Fill Data
+  
+  typically_followed_by:   # What usually comes after this block
+    - Access Decision
+
+# -----------------------------------------------------------------------------
+# USAGE EXAMPLES (Required - Critical for AI learning)
+# -----------------------------------------------------------------------------
+# Real YAML examples showing how to use this block
+
+examples:
+  - name: "Basic Usage"
+    description: "The simplest way to use this block"
+    yaml: |
+      ExampleBlock:
+        - field_name_1: value1
+        - ChildBlock:
+            - child_field: value
+
+  - name: "Complete Example"
+    description: "A more comprehensive example with all features"
+    yaml: |
+      ExampleBlock:
+        - field_name_1: value1
+        - field_name_2: value2
+        - ChildBlock:
+            - nested_content
+        - AnotherChild:
+            - more_content
+
+  - name: "In Context"
+    description: "How this block fits into a larger flow"
+    yaml: |
+      Protocol:
+        - PrecedingBlock: ...
+        - ExampleBlock:
+            - field_name_1: value1
+            - Children...
+        - FollowingBlock: ...
+
+# -----------------------------------------------------------------------------
+# COMMON MISTAKES (Recommended)
+# -----------------------------------------------------------------------------
+# Errors the AI should avoid
+
+common_mistakes:
+  - mistake: "Description of the mistake"
+    correction: "How to fix it"
+    example_wrong: |
+      # Wrong way
+      ExampleBlock:
+        - wrong_usage
+    example_correct: |
+      # Correct way
+      ExampleBlock:
+        - correct_usage
+
+# -----------------------------------------------------------------------------
+# GENERATION HINTS (Optional - for AI flow generation)
+# -----------------------------------------------------------------------------
+# Hints to help AI decide when to use this block
+
+generation_hints:
+  use_when:
+    - "The user needs to branch based on a condition"
+    - "The flow requires different paths for different scenarios"
+  
+  do_not_use_when:
+    - "There is only one possible path"
+    - "The condition is binary (use If/Else instead if available)"
+  
+  keywords:                 # Keywords in user request that suggest this block
+    - "depending on"
+    - "based on"
+    - "if the value is"
+    - "switch"
+    - "branch"

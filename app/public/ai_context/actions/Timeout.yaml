@@ -1,0 +1,435 @@
+# =============================================================================
+# AI CONTEXT: Timeout Block
+# Workspace: Actions
+# =============================================================================
+
+block_name: "Timeout"
+block_type: leaf
+workspace: actions
+
+# -----------------------------------------------------------------------------
+# CORE INTENT
+# -----------------------------------------------------------------------------
+intent: |
+  Defines how long (in seconds) the card runner should wait for a card to
+  complete before triggering a timeout condition. This prevents cards from
+  waiting indefinitely for user input.
+
+description: |
+  The Timeout block is a leaf within Policy that specifies the timeout
+  duration for a card. When the timeout is reached without card completion,
+  the card runner triggers the card's timeout state.
+  
+  Key behaviors:
+  - `timeout_sec` specifies the duration in seconds (as a string)
+  - Card runner starts a timer when card execution begins
+  - If timer reaches timeout_sec before completion, timeout is triggered
+  - Timeout typically sets `{card_id}_timeout` state to True
+  - Pre-conditions can check timeout state to prevent re-execution
+  
+  Common timeout values:
+  - "10": Short timeout for simple acknowledgements
+  - "30": Standard timeout for text input (default recommendation)
+  - "60": Extended timeout for complex inputs or slow users
+  - "120": Long timeout for special cases
+
+# -----------------------------------------------------------------------------
+# SEMANTIC ROLE
+# -----------------------------------------------------------------------------
+semantic_role: constraint
+
+# -----------------------------------------------------------------------------
+# FIELD DEFINITIONS
+# -----------------------------------------------------------------------------
+fields:
+  timeout_sec:
+    intent: "The timeout duration in seconds"
+    description: |
+      The timeout_sec field specifies how many seconds the card runner should
+      wait before triggering a timeout condition. The value is provided as a
+      string representing the number of seconds.
+      
+      When timeout occurs:
+      - Card execution is interrupted
+      - Timeout state is set (e.g., state.{card_id}_timeout = True)
+      - Card runner moves to next available card
+      - Pre-conditions can check timeout to prevent re-execution
+      
+      Considerations for choosing timeout values:
+      - User-facing cards: 30-60 seconds typical
+      - Simple acknowledgements: 10-15 seconds
+      - Complex inputs: 60-120 seconds
+      - Background operations: May not need timeout
+    value_type: text
+    required: true
+    default_behavior: |
+      No default - should be explicitly specified. A value of "30" is
+      commonly used as a reasonable default for text input interactions.
+    examples:
+      - "10"
+      - "30"
+      - "32"
+      - "60"
+      - "120"
+
+# -----------------------------------------------------------------------------
+# STRUCTURAL CONSTRAINTS
+# -----------------------------------------------------------------------------
+allowed_children: []  # Leaf block - no children
+
+required_children:
+  min: 0
+  max: 0
+  types: []
+
+allowed_parents:
+  - Policy  # Timeout can only exist inside Policy
+
+# -----------------------------------------------------------------------------
+# RESTRICTIONS & RULES
+# -----------------------------------------------------------------------------
+restrictions:
+  - "Timeout blocks can ONLY exist as direct children of Policy"
+  - "The timeout_sec value must be a valid number (as string)"
+  - "Timeout should be appropriate for the interaction type"
+  - "User-facing cards should typically have a timeout defined"
+  - "One Timeout per Policy is typical (multiple would be redundant)"
+
+# -----------------------------------------------------------------------------
+# RELATIONSHIPS
+# -----------------------------------------------------------------------------
+relationships:
+  requires:
+    - Policy  # Timeout must have a Policy parent
+  
+  pairs_with:
+    - State List     # Timeout state variables are declared in State List
+    - Pre-Condition  # Can check timeout state in Pre-Conditions List
+    - Post Effect    # May update timeout state in post_effects
+  
+  typically_preceded_by: null  # Usually the only or first child of Policy
+  
+  typically_followed_by: null  # Usually the only child of Policy
+
+# -----------------------------------------------------------------------------
+# USAGE EXAMPLES
+# -----------------------------------------------------------------------------
+examples:
+  - name: "Standard Timeout"
+    description: "30-second timeout for text input"
+    yaml: |
+      Timeout:
+        - timeout_sec: "30"
+
+  - name: "Short Timeout"
+    description: "10-second timeout for quick interactions"
+    yaml: |
+      Timeout:
+        - timeout_sec: "10"
+
+  - name: "Extended Timeout"
+    description: "60-second timeout for complex inputs"
+    yaml: |
+      Timeout:
+        - timeout_sec: "60"
+
+  - name: "Custom Timeout"
+    description: "32-second custom timeout"
+    yaml: |
+      Timeout:
+        - timeout_sec: "32"
+
+  - name: "In Policy Container"
+    description: "How Timeout fits inside Policy"
+    yaml: |
+      Policy:
+        - Timeout:
+            - timeout_sec: "30"
+
+  - name: "In Card Context"
+    description: "Timeout in full Card structure"
+    yaml: |
+      Card:
+        - card_id: collect_truck_num_v1
+        - State List:
+            - state:
+                - name: truck_number_filled
+            - state:
+                - name: collect_truck_num_v1_timeout
+        - delivery:
+            - intent:
+                - intent: collect
+            - interaction:
+                - interaction_type: input.text
+                - field:
+                    - field: truck_number
+                    - label: Truck Number
+                    - prompt: Enter truck number
+        - Policy:
+            - Timeout:
+                - timeout_sec: "30"
+        - Pre-Conditions List:
+            - Pre-Condition:
+                - pre_condition: state.truck_number_filled == False
+            - Pre-Condition:
+                - pre_condition: state.collect_truck_num_v1_timeout == False
+        - post_effects:
+            - Post Effect:
+                - post_effect: state.truck_number_filled = True
+
+  - name: "With Timeout State Check"
+    description: "Pre-condition checking timeout state"
+    yaml: |
+      Card:
+        - card_id: collect_data_v1
+        - State List:
+            - state:
+                - name: data_filled
+            - state:
+                - name: collect_data_v1_timeout
+        - Policy:
+            - Timeout:
+                - timeout_sec: "30"
+        - Pre-Conditions List:
+            - Pre-Condition:
+                - pre_condition: state.data_filled == False
+            - Pre-Condition:
+                - pre_condition: state.collect_data_v1_timeout == False
+
+  - name: "In Full Action Context"
+    description: "Timeout in a complete Action structure"
+    yaml: |
+      Action:
+        - action: fill_truck_number
+        - Card:
+            - card_id: collect_truck_num_v1
+            - delivery:
+                - intent:
+                    - intent: collect
+                - interaction:
+                    - interaction_type: input.text
+                    - field:
+                        - field: truck_number
+                        - label: Truck Number
+                        - prompt: Please enter your truck number
+            - Policy:
+                - Timeout:
+                    - timeout_sec: "32"
+            - Pre-Conditions List:
+                - Pre-Condition:
+                    - pre_condition: state.truck_number_filled == False
+            - post_effects:
+                - Post Effect:
+                    - post_effect: state.truck_number_filled = True
+
+# -----------------------------------------------------------------------------
+# COMMON MISTAKES
+# -----------------------------------------------------------------------------
+common_mistakes:
+  - mistake: "Placing Timeout outside of Policy"
+    correction: "Timeout blocks must always be inside Policy"
+    example_wrong: |
+      Card:
+        - card_id: my_card
+        - Timeout:  # Error: Not inside Policy!
+            - timeout_sec: "30"
+    example_correct: |
+      Card:
+        - card_id: my_card
+        - Policy:
+            - Timeout:  # Correct: Inside Policy
+                - timeout_sec: "30"
+
+  - mistake: "Using number instead of string for timeout_sec"
+    correction: "Wrap the number in quotes to make it a string"
+    example_wrong: |
+      Timeout:
+        - timeout_sec: 30  # Error: Number, not string!
+    example_correct: |
+      Timeout:
+        - timeout_sec: "30"  # Correct: String value
+
+  - mistake: "Missing timeout for user-facing cards"
+    correction: "Cards that wait for user input should have a timeout"
+    example_wrong: |
+      Card:
+        - card_id: collect_data
+        - delivery:
+            - intent:
+                - intent: collect
+            - interaction: ...
+        # Missing Policy with Timeout - could wait forever!
+    example_correct: |
+      Card:
+        - card_id: collect_data
+        - delivery:
+            - intent:
+                - intent: collect
+            - interaction: ...
+        - Policy:
+            - Timeout:
+                - timeout_sec: "30"  # Prevents indefinite waiting
+
+  - mistake: "Not declaring timeout state variable"
+    correction: "If checking timeout state, declare it in State List"
+    example_wrong: |
+      Card:
+        - card_id: my_card
+        - State List:
+            - state:
+                - name: data_filled
+            # Missing timeout state declaration!
+        - Policy:
+            - Timeout:
+                - timeout_sec: "30"
+        - Pre-Conditions List:
+            - Pre-Condition:
+                - pre_condition: state.my_card_timeout == False  # Undeclared!
+    example_correct: |
+      Card:
+        - card_id: my_card
+        - State List:
+            - state:
+                - name: data_filled
+            - state:
+                - name: my_card_timeout  # Declared!
+        - Policy:
+            - Timeout:
+                - timeout_sec: "30"
+        - Pre-Conditions List:
+            - Pre-Condition:
+                - pre_condition: state.my_card_timeout == False  # Now valid
+
+  - mistake: "Timeout too short for interaction type"
+    correction: "Match timeout to expected user interaction time"
+    example_wrong: |
+      # Collecting multiple fields with only 5 second timeout
+      Card:
+        - card_id: collect_driver_info
+        - delivery:
+            - interaction:
+                - field: driver_name
+                - field: driver_phone
+                - field: driver_license
+        - Policy:
+            - Timeout:
+                - timeout_sec: "5"  # Too short for 3 fields!
+    example_correct: |
+      # Appropriate timeout for multiple field entry
+      Card:
+        - card_id: collect_driver_info
+        - delivery:
+            - interaction:
+                - field: driver_name
+                - field: driver_phone
+                - field: driver_license
+        - Policy:
+            - Timeout:
+                - timeout_sec: "90"  # Allows time for all fields
+
+# -----------------------------------------------------------------------------
+# GENERATION HINTS
+# -----------------------------------------------------------------------------
+generation_hints:
+  use_when:
+    - "Card waits for user input"
+    - "Need to prevent indefinite waiting"
+    - "User mentions timeout, wait time, or time limit"
+    - "Creating user-facing interaction cards"
+  
+  do_not_use_when:
+    - "There is no parent Policy block"
+    - "Card doesn't wait for external input"
+    - "Background processing card that should complete naturally"
+  
+  keywords:
+    - "timeout"
+    - "seconds"
+    - "wait"
+    - "time"
+    - "limit"
+    - "duration"
+    - "expire"
+    - "how long"
+
+# -----------------------------------------------------------------------------
+# TIMEOUT VALUES GUIDE
+# -----------------------------------------------------------------------------
+timeout_values_guide: |
+  Recommended timeout values by interaction type:
+  
+  ┌────────────────────────────────┬──────────────┬─────────────────────────┐
+  │ Interaction Type               │ Timeout      │ Rationale               │
+  ├────────────────────────────────┼──────────────┼─────────────────────────┤
+  │ Simple acknowledgement         │ "10" - "15"  │ Just a button press     │
+  │ Single text input              │ "30"         │ Standard text entry     │
+  │ Single text input (custom)     │ "32"         │ Slightly extended       │
+  │ Multiple related fields        │ "60" - "90"  │ More time to complete   │
+  │ Complex data entry             │ "120"        │ Extended for complexity │
+  │ Document/signature capture     │ "180"        │ Physical action needed  │
+  └────────────────────────────────┴──────────────┴─────────────────────────┘
+  
+  Factors to consider:
+  • User experience (too short frustrates users)
+  • Input complexity (more fields = more time)
+  • Device type (kiosk vs mobile)
+  • User demographic (allow extra time if needed)
+
+# -----------------------------------------------------------------------------
+# TIMEOUT STATE PATTERN
+# -----------------------------------------------------------------------------
+timeout_state_pattern: |
+  Timeout integrates with state management:
+  
+  ┌─────────────────────────────────────────────────────────────────┐
+  │                    Card Execution Flow                          │
+  │                                                                 │
+  │   Card Starts        Timer Running       Timeout Reached        │
+  │   ───────────        ─────────────       ───────────────        │
+  │   Timer: 0 sec       Timer: 15 sec       Timer: 30 sec          │
+  │                                          (timeout_sec: "30")    │
+  │                                                                 │
+  │   ┌───────────────────────────────────────────────────────────┐ │
+  │   │ State Before: collect_truck_num_v1_timeout = False       │ │
+  │   │ State After:  collect_truck_num_v1_timeout = True        │ │
+  │   └───────────────────────────────────────────────────────────┘ │
+  └─────────────────────────────────────────────────────────────────┘
+  
+  Pre-condition uses timeout state:
+  
+  Pre-Conditions List:
+    - Pre-Condition:
+        - pre_condition: state.collect_truck_num_v1_timeout == False
+  
+  This prevents:
+  • Card from running again after timeout
+  • Infinite timeout loops
+  • User frustration from repeated timeouts
+
+# -----------------------------------------------------------------------------
+# CARD RUNNER BEHAVIOR
+# -----------------------------------------------------------------------------
+card_runner_behavior: |
+  How the card runner handles timeout:
+  
+  1. CARD INVOKED
+     └── Timer starts (0 seconds)
+  
+  2. WAITING FOR COMPLETION
+     └── Timer incrementing...
+     └── User interacting (or not)
+  
+  3a. USER COMPLETES BEFORE TIMEOUT
+      └── Timer stopped
+      └── Card completes normally
+      └── post_effects executed
+  
+  3b. TIMEOUT REACHED (timeout_sec seconds elapsed)
+      └── Card execution interrupted
+      └── Timeout state set to True
+      └── Card marked as timed out
+      └── Card runner moves to next card
+  
+  4. NEXT CARD EVALUATION
+     └── Pre-conditions checked
+     └── Timed-out card won't run (timeout state = True)

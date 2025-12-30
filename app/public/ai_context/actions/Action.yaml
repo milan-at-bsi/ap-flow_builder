@@ -1,0 +1,469 @@
+# =============================================================================
+# AI CONTEXT: Action Block
+# Workspace: Actions
+# =============================================================================
+
+block_name: "Action"
+block_type: container
+workspace: actions
+
+# -----------------------------------------------------------------------------
+# CORE INTENT
+# -----------------------------------------------------------------------------
+intent: |
+  Root container for an entire workflow/flow. ONE Action represents ONE complete
+  process (e.g., "QR Code Check-in", "Truck Registration", "Visitor Greeting").
+  
+  **CRITICAL**: Create ONE Action with MULTIPLE Cards and at least ONE Goal State.
+  Do NOT create multiple Actions for different steps - use multiple Cards instead!
+
+description: |
+  The Action block is the top-level container that defines a complete workflow.
+  Each Action encapsulates an entire process, with MULTIPLE Card children that
+  represent individual steps/screens within that process, and GOAL STATE children
+  that define when the workflow is complete.
+  
+  **KEY CONCEPT - ONE Action, MULTIPLE Cards, GOAL STATES:**
+  - ONE Action = ONE complete workflow (like a "flow" or "process")
+  - MULTIPLE Cards = MULTIPLE steps within that workflow
+  - GOAL STATES = Define when the workflow terminates (success, failure, cancel)
+  - Cards control execution order through Pre-Conditions and Post-Effects (state-based)
+  - DO NOT create multiple Actions for branching - use Cards with Pre-Conditions instead
+  
+  **Goal States:**
+  Every Action must have at least one Goal State that defines when the workflow
+  is considered complete. Goal States contain boolean expressions evaluated
+  against the current state:
+  - Success goal: `state.truck_number_filled == True`
+  - Failure goal: `state.flow_timeout == True`
+  - Cancel goal: `state.user_cancelled == True`
+  
+  **GOAL STATE ↔ POST-EFFECT LINKAGE (CRITICAL):**
+  Every Goal State expression MUST have a corresponding Post-Effect in at least
+  one Card that can set the state to satisfy the goal:
+  
+  Goal State: `expression: state.truck_number_filled == True`
+      ↓ REQUIRES ↓
+  Card Post-Effect: `post_effect: state.truck_number_filled = True`
+  
+  Without a matching Post-Effect in a Card, the Goal is UNREACHABLE!
+  
+  **Multiple Goal States (OR Logic):**
+  When an Action has multiple Goal States, they are combined with OR logic.
+  The flow terminates when ANY Goal State expression evaluates to True.
+  
+  **State-Based Execution Model:**
+  Unlike Protocols (which use Switch/Case for branching), Actions use a
+  state-based card runner that:
+  1. Evaluates each Card's Pre-Conditions against current state
+  2. Invokes the first Card whose Pre-Conditions are ALL true
+  3. After Card completes, Post-Effects update state
+  4. Checks if ANY Goal State expression is satisfied (flow complete)
+  5. If not complete, cycle repeats until a Goal State is satisfied
+  
+  This model allows flexible, non-linear flows where Cards can be invoked
+  in different orders based on state, without explicit branching structures.
+
+# -----------------------------------------------------------------------------
+# SEMANTIC ROLE
+# -----------------------------------------------------------------------------
+semantic_role: root
+
+# -----------------------------------------------------------------------------
+# FIELD DEFINITIONS
+# -----------------------------------------------------------------------------
+fields:
+  action:
+    intent: "Unique identifier for this action/workflow"
+    description: |
+      A descriptive identifier for the entire workflow. This should describe
+      the overall process, not individual steps.
+    value_type: text
+    required: true
+    examples:
+      - "qr_code_checkin"
+      - "truck_registration"
+      - "visitor_greeting"
+      - "collect_truck_and_trailer"
+
+# -----------------------------------------------------------------------------
+# STRUCTURAL CONSTRAINTS
+# -----------------------------------------------------------------------------
+allowed_children:
+  - Card
+  - Goal State
+
+required_children:
+  min: 2  # At least one Card and one Goal State
+  max: null
+  types:
+    - Card
+    - Goal State
+
+allowed_parents:
+  - root  # Action is always at the top level - cannot be nested
+
+# -----------------------------------------------------------------------------
+# RESTRICTIONS & RULES
+# -----------------------------------------------------------------------------
+restrictions:
+  - "Action must be the root block - cannot be nested inside other blocks"
+  - "ALWAYS use ONE Action per workflow - DO NOT create multiple Actions for different steps"
+  - "Use multiple Cards within the Action for different steps/screens"
+  - "Cards control flow order through Pre-Conditions, not through multiple Actions"
+  - "The action field should be a unique, descriptive identifier for the workflow"
+  - "Every Action MUST have at least one Goal State to define when the flow ends"
+  - "Multiple Goal States are combined with OR logic - flow ends when ANY is satisfied"
+  - "CRITICAL: Every Goal State MUST have a matching Post-Effect in at least one Card"
+  - "Verify: For each Goal State, there must be a Card Post-Effect that can set that state"
+
+# -----------------------------------------------------------------------------
+# RELATIONSHIPS
+# -----------------------------------------------------------------------------
+relationships:
+  requires: null  # Action is the root, requires nothing above it
+  
+  pairs_with:
+    - Card        # Always contains multiple Cards
+    - Goal State  # Always contains at least one Goal State
+  
+  typically_preceded_by: null  # Nothing precedes Action
+  
+  typically_followed_by: null  # Nothing follows Action at same level
+
+# -----------------------------------------------------------------------------
+# USAGE EXAMPLES
+# -----------------------------------------------------------------------------
+examples:
+  - name: "Simple Single-Step Action with Goal State"
+    description: "Basic action with one card and goal state for collecting truck number"
+    yaml: |
+      Action:
+        - action: collect_truck_number
+        - Goal State:
+            - expression: state.truck_number_filled == True
+        - Goal State:
+            - expression: state.flow_timeout == True
+        - Card:
+            - card_id: collect_truck_num_v1
+            - State List:
+                - state:
+                    - truck_number_filled: False
+            - delivery:
+                - intent:
+                    - intent: collect
+                - interaction:
+                    - interaction_type: input.text
+                    - field:
+                        - field: truck_number
+                        - label: Truck Number
+                        - prompt: Enter your truck number
+            - Policy:
+                - Timeout:
+                    - timeout_sec: "30"
+            - Pre-Conditions List:
+                - Pre-Condition:
+                    - pre_condition: state.truck_number_filled == False
+            - post_effects:
+                - Post Effect:
+                    - post_effect: state.truck_number_filled = True
+
+  - name: "Multi-Step Action with Goal States (CORRECT WAY)"
+    description: "Action with multiple Cards and Goal States for collecting both truck and trailer numbers"
+    yaml: |
+      Action:
+        - action: collect_truck_and_trailer
+        - Goal State:
+            - expression: state.all_data_collected == True
+        - Goal State:
+            - expression: state.flow_timeout == True
+        - Goal State:
+            - expression: state.user_cancelled == True
+        - Card:
+            - card_id: collect_truck_num_v1
+            - State List:
+                - state:
+                    - truck_number_filled: False
+            - delivery:
+                - intent:
+                    - intent: collect
+                - interaction:
+                    - interaction_type: input.text
+                    - field:
+                        - field: truck_number
+                        - label: Truck Number
+                        - prompt: Enter your truck number
+            - Policy:
+                - Timeout:
+                    - timeout_sec: "30"
+            - Pre-Conditions List:
+                - Pre-Condition:
+                    - pre_condition: state.truck_number_filled == False
+            - post_effects:
+                - Post Effect:
+                    - post_effect: state.truck_number_filled = True
+        - Card:
+            - card_id: collect_trailer_num_v1
+            - State List:
+                - state:
+                    - trailer_number_filled: False
+            - delivery:
+                - intent:
+                    - intent: collect
+                - interaction:
+                    - interaction_type: input.text
+                    - field:
+                        - field: trailer_number
+                        - label: Trailer Number
+                        - prompt: Enter your trailer number
+            - Policy:
+                - Timeout:
+                    - timeout_sec: "30"
+            - Pre-Conditions List:
+                - Pre-Condition:
+                    - pre_condition: state.truck_number_filled == True
+                - Pre-Condition:
+                    - pre_condition: state.trailer_number_filled == False
+            - post_effects:
+                - Post Effect:
+                    - post_effect: state.trailer_number_filled = True
+                - Post Effect:
+                    - post_effect: state.all_data_collected = True
+
+  - name: "Conditional Flow with Pre-Conditions and Goal States"
+    description: "Cards execute based on state - this is how branching works in Actions"
+    yaml: |
+      Action:
+        - action: vehicle_checkin
+        - Goal State:
+            - expression: state.checkin_complete == True
+        - Goal State:
+            - expression: state.flow_timeout == True
+        - Card:
+            - card_id: collect_vehicle_type_v1
+            - State List:
+                - state:
+                    - vehicle_type_filled: False
+                - state:
+                    - is_truck: False
+            - delivery:
+                - intent:
+                    - intent: collect
+                - interaction:
+                    - interaction_type: input.text
+                    - field:
+                        - field: vehicle_type
+                        - label: Vehicle Type
+                        - prompt: Enter vehicle type (truck/car)
+            - Pre-Conditions List:
+                - Pre-Condition:
+                    - pre_condition: state.vehicle_type_filled == False
+            - post_effects:
+                - Post Effect:
+                    - post_effect: state.vehicle_type_filled = True
+        - Card:
+            - card_id: collect_truck_details_v1
+            - State List:
+                - state:
+                    - truck_details_filled: False
+            - delivery:
+                - intent:
+                    - intent: collect
+                - interaction:
+                    - interaction_type: input.text
+                    - field:
+                        - field: truck_number
+                        - label: Truck Number
+                        - prompt: Enter truck number
+            - Pre-Conditions List:
+                - Pre-Condition:
+                    - pre_condition: state.vehicle_type_filled == True
+                - Pre-Condition:
+                    - pre_condition: state.is_truck == True
+                - Pre-Condition:
+                    - pre_condition: state.truck_details_filled == False
+            - post_effects:
+                - Post Effect:
+                    - post_effect: state.truck_details_filled = True
+                - Post Effect:
+                    - post_effect: state.checkin_complete = True
+
+# -----------------------------------------------------------------------------
+# COMMON MISTAKES
+# -----------------------------------------------------------------------------
+common_mistakes:
+  - mistake: "Creating multiple Actions for different steps"
+    correction: "Use ONE Action with MULTIPLE Cards - each Card is a step"
+    example_wrong: |
+      # WRONG: Multiple Actions for one workflow
+      Action:
+        - action: step_1_collect_truck
+        - Card:
+            - card_id: collect_truck
+      
+      Action:
+        - action: step_2_collect_trailer
+        - Card:
+            - card_id: collect_trailer
+    example_correct: |
+      # CORRECT: ONE Action with MULTIPLE Cards and Goal States
+      Action:
+        - action: collect_truck_and_trailer
+        - Goal State:
+            - expression: state.all_data_collected == True
+        - Card:
+            - card_id: collect_truck_v1
+            # ... truck collection details
+        - Card:
+            - card_id: collect_trailer_v1
+            # ... trailer collection details
+
+  - mistake: "Forgetting to add Goal State to an Action"
+    correction: "Every Action MUST have at least one Goal State to define completion"
+    example_wrong: |
+      # WRONG: No Goal State - flow never knows when to end!
+      Action:
+        - action: collect_truck_number
+        - Card:
+            - card_id: collect_truck_v1
+            # ... card content
+    example_correct: |
+      # CORRECT: Goal States define when flow ends
+      Action:
+        - action: collect_truck_number
+        - Goal State:
+            - expression: state.truck_number_filled == True
+        - Goal State:
+            - expression: state.flow_timeout == True
+        - Card:
+            - card_id: collect_truck_v1
+            # ... card content
+
+  - mistake: "Only adding success Goal State without failure handling"
+    correction: "Include timeout/cancellation Goal States for robust flows"
+    example_wrong: |
+      # WRONG: Only success goal - what if user cancels or times out?
+      Action:
+        - action: collect_data
+        - Goal State:
+            - expression: state.data_collected == True
+        - Card:
+            # ... card content
+    example_correct: |
+      # CORRECT: Multiple Goal States handle success AND failure
+      Action:
+        - action: collect_data
+        - Goal State:
+            - expression: state.data_collected == True
+        - Goal State:
+            - expression: state.flow_timeout == True
+        - Goal State:
+            - expression: state.user_cancelled == True
+        - Card:
+            # ... card content
+
+  - mistake: "Using Switch/Case inside Actions for branching"
+    correction: "Use Pre-Conditions on Cards to control which Card runs based on state"
+    example_wrong: |
+      # WRONG: Trying to use Switch/Case (that's for Protocols)
+      Action:
+        - action: vehicle_checkin
+        - Switch:  # Error: Switch is for Protocols, not Actions!
+            - On: vehicle_type
+            - Case:
+                - match: truck
+    example_correct: |
+      # CORRECT: Use Pre-Conditions for conditional Card execution
+      Action:
+        - action: vehicle_checkin
+        - Goal State:
+            - expression: state.checkin_complete == True
+        - Card:
+            - card_id: truck_details_v1
+            - Pre-Conditions List:
+                - Pre-Condition:
+                    - pre_condition: state.is_truck == True
+            # ... card content
+
+  - mistake: "Forgetting that Card order in YAML doesn't matter"
+    correction: "Card execution order is determined by Pre-Conditions, not YAML order"
+    example_wrong: |
+      # Thinking Card 1 always runs first because it's first in YAML
+      Action:
+        - action: my_flow
+        - Goal State:
+            - expression: state.flow_complete == True
+        - Card:
+            - card_id: card_1
+            # No Pre-Conditions - will always run!
+        - Card:
+            - card_id: card_2
+    example_correct: |
+      # Pre-Conditions control execution order
+      Action:
+        - action: my_flow
+        - Goal State:
+            - expression: state.flow_complete == True
+        - Card:
+            - card_id: card_1
+            - Pre-Conditions List:
+                - Pre-Condition:
+                    - pre_condition: state.step_1_done == False
+            - post_effects:
+                - Post Effect:
+                    - post_effect: state.step_1_done = True
+        - Card:
+            - card_id: card_2
+            - Pre-Conditions List:
+                - Pre-Condition:
+                    - pre_condition: state.step_1_done == True
+            - post_effects:
+                - Post Effect:
+                    - post_effect: state.flow_complete = True
+
+# -----------------------------------------------------------------------------
+# GENERATION HINTS
+# -----------------------------------------------------------------------------
+generation_hints:
+  use_when:
+    - "User wants to create a new workflow/process"
+    - "User mentions 'flow', 'process', 'workflow', 'check-in', 'registration'"
+    - "User wants to collect data or interact with users"
+  
+  do_not_use_when:
+    - "User is asking to add another step - add a Card to existing Action instead"
+    - "User mentions 'protocol' (use Protocol workspace instead)"
+  
+  keywords:
+    - "create a flow"
+    - "create an action"
+    - "workflow"
+    - "process"
+    - "check-in"
+    - "registration"
+    - "collect data"
+
+# -----------------------------------------------------------------------------
+# KEY ARCHITECTURE CONCEPT
+# -----------------------------------------------------------------------------
+architecture_note: |
+  **Actions vs Protocols - Key Differences:**
+  
+  PROTOCOLS (different workspace):
+  - Use Switch/Case for explicit structural branching
+  - Flow is deterministic based on collected data
+  - Think: "If vehicle_type is 'truck', do X; else do Y"
+  
+  ACTIONS (this workspace):
+  - Use Pre-Conditions on Cards for state-based execution
+  - Card runner evaluates ALL cards and runs those whose Pre-Conditions pass
+  - Think: "Run this Card when truck_number is not yet filled"
+  - ONE Action = ONE workflow with MULTIPLE Cards
+  - GOAL STATES define when the workflow is complete
+  
+  **Remember:**
+  - ONE Action per workflow (not one Action per step)
+  - MULTIPLE Cards within the Action for different steps
+  - At least ONE Goal State to define completion criteria
+  - Multiple Goal States combine with OR logic
+  - Pre-Conditions + Post-Effects control Card execution order
